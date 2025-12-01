@@ -1,0 +1,5 @@
+{
+  "name": "MedSales 業務管理系統",
+  "description": "專為醫療業務代表設計的全方位 CRM 系統，用於管理醫院客戶關係、追蹤設備 (MR810) 與耗材使用量，並透過 AI 智能洞察監控銷售進度。",
+  "requestFramePermissions": []
+}

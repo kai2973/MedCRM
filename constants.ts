@@ -1,0 +1,94 @@
+
+import { Hospital, Product, ProductType, SalesStage, Contact, UsageRecord, Note, HospitalLevel } from './types';
+
+export const PRODUCTS: Product[] = [
+  { code: 'MR810', name: '濕氣加熱器系統', type: ProductType.EQUIPMENT, description: '呼吸道濕氣加熱控制器' },
+  { code: 'FP950', name: '高階濕氣加熱器', type: ProductType.EQUIPMENT, description: '進階呼吸道濕氣治療' },
+  { code: 'AA001', name: '濕氣加熱罐', type: ProductType.CONSUMABLE, description: '成人用重複性加熱罐' },
+  { code: 'AA031', name: '呼吸管路', type: ProductType.CONSUMABLE, description: '加熱線呼吸管路' },
+  { code: 'AA400', name: '空氣過濾片', type: ProductType.CONSUMABLE, description: '病毒/細菌過濾片' },
+  { code: 'AA401', name: '過濾片轉接頭', type: ProductType.CONSUMABLE, description: 'AA400 專用轉接頭' },
+];
+
+export const MOCK_HOSPITALS: Hospital[] = [
+  { 
+    id: '1', 
+    name: '聖馬利亞綜合醫院', 
+    address: '台北市中正區健康路123號', 
+    region: '北區', 
+    level: HospitalLevel.MEDICAL_CENTER,
+    stage: SalesStage.TRIAL, 
+    equipmentInstalled: true, 
+    installedEquipment: [
+      { id: 'eq1', productCode: 'MR810', installDate: '2023-08-15', quantity: 5, ownership: '借用' }
+    ],
+    lastVisit: '2023-10-15' 
+  },
+  { 
+    id: '2', 
+    name: '都會中心醫院', 
+    address: '台中市西屯區大道456號', 
+    region: '中區', 
+    level: HospitalLevel.MEDICAL_CENTER,
+    stage: SalesStage.NEGOTIATION, 
+    equipmentInstalled: true, 
+    installedEquipment: [
+      { id: 'eq2', productCode: 'MR810', installDate: '2023-05-20', quantity: 12, ownership: '買斷' },
+      { id: 'eq3', productCode: 'FP950', installDate: '2023-09-10', quantity: 2, ownership: '借用' }
+    ],
+    lastVisit: '2023-10-20' 
+  },
+  { 
+    id: '3', 
+    name: '西區診所', 
+    address: '台南市安平區夕陽路789號', 
+    region: '南區', 
+    level: HospitalLevel.LOCAL,
+    stage: SalesStage.LEAD, 
+    equipmentInstalled: false, 
+    installedEquipment: [],
+    lastVisit: '2023-09-01' 
+  },
+  { 
+    id: '4', 
+    name: '大橡樹醫療中心', 
+    address: '高雄市左營區橡樹巷101號', 
+    region: '南區', 
+    level: HospitalLevel.REGIONAL,
+    stage: SalesStage.CLOSED_WON, 
+    equipmentInstalled: true, 
+    installedEquipment: [
+       { id: 'eq4', productCode: 'MR810', installDate: '2023-01-10', quantity: 20, ownership: '買斷' }
+    ],
+    lastVisit: '2023-10-25' 
+  },
+  { 
+    id: '5', 
+    name: '松谷健康中心', 
+    address: '基隆市仁愛區松街202號', 
+    region: '北區', 
+    level: HospitalLevel.LOCAL,
+    stage: SalesStage.QUALIFICATION, 
+    equipmentInstalled: false, 
+    installedEquipment: [],
+    lastVisit: '2023-10-10' 
+  },
+];
+
+export const MOCK_CONTACTS: Contact[] = [
+  { id: 'c1', hospitalId: '1', name: '陳淑芬 醫師', role: 'ICU 主任', email: 's.smith@stmarys.com', phone: '02-2345-6789', isKeyDecisionMaker: true },
+  { id: 'c2', hospitalId: '1', name: '王大明', role: '採購經理', email: 'j.doe@stmarys.com', phone: '02-2345-6790', isKeyDecisionMaker: false },
+  { id: 'c3', hospitalId: '2', name: '李雅婷', role: '呼吸治療師', email: 'e.blunt@citycentral.com', phone: '04-2345-6789', isKeyDecisionMaker: true },
+];
+
+export const MOCK_USAGE: UsageRecord[] = [
+  { id: 'u1', hospitalId: '1', productCode: 'AA001', quantity: 50, date: '2023-08-01', type: '訂單' },
+  { id: 'u2', hospitalId: '1', productCode: 'AA001', quantity: 45, date: '2023-09-01', type: '訂單' },
+  { id: 'u3', hospitalId: '1', productCode: 'AA001', quantity: 60, date: '2023-10-01', type: '訂單' },
+  { id: 'u4', hospitalId: '2', productCode: 'AA031', quantity: 120, date: '2023-10-05', type: '訂單' },
+];
+
+export const MOCK_NOTES: Note[] = [
+  { id: 'n1', hospitalId: '1', content: '與陳醫師開會。她對 MR810 的效能感到滿意，但對耗材成本有些顧慮。', date: '2023-10-15', author: '我', activityType: '會議' },
+  { id: 'n2', hospitalId: '3', content: '初步陌生拜訪。櫃台人員已代為轉達訊息。', date: '2023-09-01', author: '我', activityType: '通話' },
+];
