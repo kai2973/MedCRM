@@ -2,12 +2,12 @@
 import { Hospital, Product, ProductType, SalesStage, Contact, UsageRecord, Note, HospitalLevel } from './types';
 
 export const PRODUCTS: Product[] = [
-  { code: 'MR810', name: '濕氣加熱器系統', type: ProductType.EQUIPMENT, description: '呼吸道濕氣加熱控制器' },
-  { code: 'FP950', name: '高階濕氣加熱器', type: ProductType.EQUIPMENT, description: '進階呼吸道濕氣治療' },
-  { code: 'AA001', name: '濕氣加熱罐', type: ProductType.CONSUMABLE, description: '成人用重複性加熱罐' },
-  { code: 'AA031', name: '呼吸管路', type: ProductType.CONSUMABLE, description: '加熱線呼吸管路' },
-  { code: 'AA400', name: '空氣過濾片', type: ProductType.CONSUMABLE, description: '病毒/細菌過濾片' },
-  { code: 'AA401', name: '過濾片轉接頭', type: ProductType.CONSUMABLE, description: 'AA400 專用轉接頭' },
+  { code: 'MR810', name: 'F&P 810 System', type: ProductType.EQUIPMENT, description: 'F&P 810 System' },
+  { code: 'FP950', name: 'F&P 950 System', type: ProductType.EQUIPMENT, description: 'F&P 950 System' },
+  { code: 'AA001', name: 'The Optiflow Nasal Interface', type: ProductType.CONSUMABLE, description: 'F&P Optiflow Nasal Interface' },
+  { code: 'AA031', name: 'The Optiflow Trace™ Nasal Interface', type: ProductType.CONSUMABLE, description: 'F&P Optiflow Trace Nasal Interface with an integrated CO2 sampling tube' },
+  { code: 'AA400', name: 'Optiflow Oxygen Kit AA400', type: ProductType.CONSUMABLE, description: 'Optiflow Oxygen Kit AA400' },
+  { code: 'AA401', name: 'Optiflow Oxygen Kit AA401', type: ProductType.CONSUMABLE, description: 'Optiflow Oxygen Kit AA401' },
 ];
 
 export const MOCK_HOSPITALS: Hospital[] = [
