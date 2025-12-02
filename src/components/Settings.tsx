@@ -1,20 +1,34 @@
 
-import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Save, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { User, Bell, Shield, Database, Save, Check, Loader } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const Settings: React.FC = () => {
+  const { user, profile: authProfile, updateProfile } = useAuth();
   const [activeSection, setActiveSection] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
-  // Mock Form State
+  // Profile Form State
   const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@medsales.com',
-    role: '資深業務代表',
-    region: '北區',
-    bio: '專注於呼吸照護解決方案的資深業務。'
+    full_name: '',
+    email: '',
+    role: '',
+    region: '',
+    bio: ''
   });
+
+  // Password Form State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
@@ -23,15 +37,190 @@ const Settings: React.FC = () => {
     dealUpdates: true
   });
 
-  const handleSave = () => {
+  // 載入 profile 資料
+  const loadProfile = useCallback(async (showLoading = true) => {
+    if (!user) return;
+
+    // 只有首次載入時顯示 loading
+    if (showLoading && !hasLoadedOnce.current) {
+      setInitialLoading(true);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading profile:', error);
+      }
+
+      if (data) {
+        setProfile({
+          full_name: data.full_name || '',
+          email: data.email || user.email || '',
+          role: data.role || '業務代表',
+          region: data.region || '北區',
+          bio: data.bio || ''
+        });
+      } else {
+        // 如果沒有 profile，使用 user email
+        setProfile(prev => ({
+          ...prev,
+          email: user.email || ''
+        }));
+      }
+      
+      hasLoadedOnce.current = true;
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadProfile(true);
+  }, [loadProfile]);
+
+  // 視窗重新獲得焦點時，背景靜默更新
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && hasLoadedOnce.current && user) {
+        loadProfile(false); // 不顯示 loading
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadProfile, user]);
+
+  // 儲存 profile
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    setSaveSuccess(false);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: profile.full_name,
+          email: profile.email,
+          role: profile.role,
+          region: profile.region,
+          bio: profile.bio,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error saving profile:', error);
+        alert('儲存失敗，請稍後再試');
+      } else {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('儲存失敗，請稍後再試');
+    } finally {
       setIsSaving(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+    }
   };
+
+  // 變更密碼
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    // 驗證
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('請填寫所有欄位');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError('密碼至少需要 8 個字元');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('兩次輸入的密碼不一致');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      });
+
+      if (error) {
+        setPasswordError(error.message);
+      } else {
+        setPasswordSuccess(true);
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        setTimeout(() => setPasswordSuccess(false), 3000);
+      }
+    } catch (error) {
+      setPasswordError('變更密碼時發生錯誤');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 匯出資料
+  const handleExportData = async () => {
+    try {
+      const [hospitals, contacts, notes, usage] = await Promise.all([
+        supabase.from('hospitals').select('*'),
+        supabase.from('contacts').select('*'),
+        supabase.from('notes').select('*'),
+        supabase.from('usage_records').select('*')
+      ]);
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        hospitals: hospitals.data || [],
+        contacts: contacts.data || [],
+        notes: notes.data || [],
+        usageRecords: usage.data || []
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `medcrm-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('匯出失敗，請稍後再試');
+    }
+  };
+
+  if (initialLoading && !hasLoadedOnce.current) {
+    return (
+      <div className="p-6 lg:p-10 max-w-6xl mx-auto min-h-full flex items-center justify-center">
+        <div className="text-center">
+          <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-500">載入設定...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto min-h-full">
@@ -84,10 +273,10 @@ const Settings: React.FC = () => {
                             </div>
                             <div className="flex items-center space-x-6 pb-6 border-b border-slate-100">
                                 <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl shadow-inner">
-                                    {profile.name.charAt(0)}
+                                    {profile.full_name?.charAt(0) || 'U'}
                                 </div>
                                 <div>
-                                    <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">變更頭像</button>
+                                    <p className="text-sm text-slate-500">頭像會顯示您名字的第一個字</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -95,9 +284,10 @@ const Settings: React.FC = () => {
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">全名</label>
                                     <input 
                                         type="text" 
-                                        value={profile.name}
-                                        onChange={(e) => setProfile({...profile, name: e.target.value})}
+                                        value={profile.full_name}
+                                        onChange={(e) => setProfile({...profile, full_name: e.target.value})}
                                         className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="請輸入您的姓名"
                                     />
                                 </div>
                                 <div>
@@ -105,17 +295,19 @@ const Settings: React.FC = () => {
                                     <input 
                                         type="email" 
                                         value={profile.email}
-                                        onChange={(e) => setProfile({...profile, email: e.target.value})}
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        disabled
+                                        className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-2.5 outline-none cursor-not-allowed"
                                     />
+                                    <p className="text-xs text-slate-400 mt-1">電子郵件無法變更</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">職稱</label>
                                     <input 
                                         type="text" 
                                         value={profile.role}
-                                        disabled
-                                        className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-2.5 outline-none cursor-not-allowed"
+                                        onChange={(e) => setProfile({...profile, role: e.target.value})}
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="例如：資深業務代表"
                                     />
                                 </div>
                                 <div>
@@ -138,8 +330,36 @@ const Settings: React.FC = () => {
                                         value={profile.bio}
                                         onChange={(e) => setProfile({...profile, bio: e.target.value})}
                                         className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                                        placeholder="簡單介紹一下自己..."
                                     />
                                 </div>
+                            </div>
+                            
+                            {/* Profile Save Button */}
+                            <div className="pt-4 flex items-center justify-end space-x-4">
+                                {saveSuccess && (
+                                    <span className="text-sm text-green-600 font-medium flex items-center animate-fade-in">
+                                        <Check size={16} className="mr-1.5" />
+                                        變更已儲存
+                                    </span>
+                                )}
+                                <button 
+                                    onClick={handleSaveProfile}
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center disabled:opacity-50"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader size={18} className="animate-spin mr-2" />
+                                            儲存中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={18} className="mr-2" />
+                                            儲存變更
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     )}
@@ -182,6 +402,7 @@ const Settings: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
+                            <p className="text-sm text-slate-400 italic">* 通知功能即將推出</p>
                         </div>
                     )}
 
@@ -193,31 +414,64 @@ const Settings: React.FC = () => {
                             </div>
                             <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm">
                                 <p className="font-bold mb-1">密碼要求</p>
-                                <p>至少 8 個字元，包含一個大寫字母、一個數字和一個特殊符號。</p>
+                                <p>至少 8 個字元。建議包含大小寫字母、數字和特殊符號。</p>
                             </div>
-                             <div className="grid grid-cols-1 gap-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">目前密碼</label>
-                                    <input 
-                                        type="password" 
-                                        placeholder="••••••••"
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                    />
+                            
+                            {passwordError && (
+                                <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
+                                    {passwordError}
                                 </div>
+                            )}
+                            
+                            {passwordSuccess && (
+                                <div className="p-4 bg-green-50 border border-green-100 rounded-xl text-green-700 text-sm flex items-center">
+                                    <Check size={16} className="mr-2" />
+                                    密碼已成功變更
+                                </div>
+                            )}
+                            
+                             <div className="grid grid-cols-1 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">新密碼</label>
                                     <input 
                                         type="password" 
+                                        value={passwordForm.newPassword}
+                                        onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                                         className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="輸入新密碼"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">確認新密碼</label>
                                     <input 
                                         type="password" 
+                                        value={passwordForm.confirmPassword}
+                                        onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                                         className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="再次輸入新密碼"
                                     />
                                 </div>
+                             </div>
+                             
+                             {/* Password Save Button */}
+                             <div className="pt-4">
+                                <button 
+                                    onClick={handleChangePassword}
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center disabled:opacity-50"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader size={18} className="animate-spin mr-2" />
+                                            變更中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Shield size={18} className="mr-2" />
+                                            變更密碼
+                                        </>
+                                    )}
+                                </button>
                              </div>
                         </div>
                     )}
@@ -226,58 +480,34 @@ const Settings: React.FC = () => {
                         <div className="space-y-6 animate-fade-in">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">資料管理</h2>
-                                <p className="text-sm text-slate-500 mt-1">匯出資料或管理本機儲存。</p>
+                                <p className="text-sm text-slate-500 mt-1">匯出資料或管理您的帳戶。</p>
                             </div>
                              <div className="p-6 border border-slate-200 rounded-xl flex items-center justify-between hover:border-blue-200 transition-colors">
                                 <div>
                                     <p className="font-bold text-slate-900">匯出所有資料</p>
-                                    <p className="text-sm text-slate-500 mt-1">下載包含所有醫院、筆記和記錄的 JSON 檔案。</p>
+                                    <p className="text-sm text-slate-500 mt-1">下載包含所有醫院、聯絡人、筆記和訂單的 JSON 檔案。</p>
                                 </div>
-                                <button className="px-5 py-2.5 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+                                <button 
+                                    onClick={handleExportData}
+                                    className="px-5 py-2.5 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                                >
                                     下載 JSON
                                 </button>
                              </div>
                              <div className="p-6 border border-slate-200 rounded-xl flex items-center justify-between hover:border-red-200 transition-colors bg-red-50/50">
                                 <div>
                                     <p className="font-bold text-red-900">刪除帳戶</p>
-                                    <p className="text-sm text-red-700 mt-1">永久刪除您的帳戶及所有相關資料。</p>
+                                    <p className="text-sm text-red-700 mt-1">永久刪除您的帳戶及所有相關資料。此操作無法復原。</p>
                                 </div>
-                                <button className="px-5 py-2.5 bg-white border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors">
+                                <button 
+                                    className="px-5 py-2.5 bg-white border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"
+                                    onClick={() => alert('請聯絡系統管理員刪除帳戶')}
+                                >
                                     刪除帳戶
                                 </button>
                              </div>
                         </div>
                     )}
-
-                    {/* Footer Actions */}
-                    <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end space-x-4">
-                        {saveSuccess && (
-                            <span className="text-sm text-green-600 font-medium flex items-center animate-fade-in">
-                                <Check size={16} className="mr-1.5" />
-                                變更已儲存
-                            </span>
-                        )}
-                        <button className="px-6 py-2.5 text-slate-600 font-medium hover:text-slate-900 transition-colors">
-                            取消
-                        </button>
-                        <button 
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center"
-                        >
-                            {isSaving ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                    儲存中...
-                                </>
-                            ) : (
-                                <>
-                                    <Save size={18} className="mr-2" />
-                                    儲存變更
-                                </>
-                            )}
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
