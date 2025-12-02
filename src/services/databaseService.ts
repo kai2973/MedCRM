@@ -33,6 +33,7 @@ export const fetchHospitals = async (): Promise<Hospital[]> => {
       .filter(e => e.hospital_id === h.id)
       .map(e => ({
         id: e.id,
+        hospitalId: e.hospital_id,
         productCode: e.product_code,
         installDate: e.install_date,
         quantity: e.quantity,
@@ -309,13 +310,12 @@ export const createUsageRecord = async (record: Omit<UsageRecord, 'id'>): Promis
 // ============== 已安裝設備 CRUD ==============
 
 export const createInstalledEquipment = async (
-  hospitalId: string,
-  equipment: Omit<InstalledEquipment, 'id'>
+  equipment: InstalledEquipment
 ): Promise<InstalledEquipment | null> => {
   const { data, error } = await supabase
     .from('installed_equipment')
     .insert({
-      hospital_id: hospitalId,
+      hospital_id: equipment.hospitalId,
       product_code: equipment.productCode,
       install_date: equipment.installDate,
       quantity: equipment.quantity,
@@ -331,11 +331,31 @@ export const createInstalledEquipment = async (
 
   return {
     id: data.id,
+    hospitalId: data.hospital_id,
     productCode: data.product_code,
     installDate: data.install_date,
     quantity: data.quantity,
     ownership: data.ownership
   };
+};
+
+export const updateInstalledEquipment = async (equipment: InstalledEquipment): Promise<boolean> => {
+  const { error } = await supabase
+    .from('installed_equipment')
+    .update({
+      product_code: equipment.productCode,
+      install_date: equipment.installDate,
+      quantity: equipment.quantity,
+      ownership: equipment.ownership
+    })
+    .eq('id', equipment.id);
+
+  if (error) {
+    console.error('Error updating installed equipment:', error);
+    return false;
+  }
+
+  return true;
 };
 
 export const deleteInstalledEquipment = async (equipmentId: string): Promise<boolean> => {

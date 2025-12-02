@@ -58,10 +58,11 @@ export interface Note {
   activityType: ActivityType;
 }
 
-export type OwnershipType = '借用' | '買斷';
+export type OwnershipType = '借用' | '買斷' | '租賃';
 
 export interface InstalledEquipment {
   id: string;
+  hospitalId?: string;
   productCode: string;
   installDate: string;
   quantity: number;

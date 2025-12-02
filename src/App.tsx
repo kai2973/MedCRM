@@ -7,7 +7,7 @@ import HospitalList from './components/HospitalList';
 import HospitalDetail from './components/HospitalDetail';
 import Settings from './components/Settings';
 import { Loader } from 'lucide-react';
-import { Hospital, Note, Contact, UsageRecord, SalesStage } from './types';
+import { Hospital, Note, Contact, UsageRecord, SalesStage, InstalledEquipment } from './types';
 import {
   fetchHospitals,
   fetchNotes,
@@ -18,7 +18,10 @@ import {
   createNote,
   updateNote,
   updateContact,
-  createUsageRecord
+  createUsageRecord,
+  createInstalledEquipment,
+  updateInstalledEquipment,
+  deleteInstalledEquipment
 } from './services/databaseService';
 
 const AppContent: React.FC = () => {
@@ -156,6 +159,63 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // ============== 設備管理 ==============
+  
+  // 新增設備
+  const handleAddEquipment = async (equipment: InstalledEquipment) => {
+    const created = await createInstalledEquipment(equipment);
+    if (created) {
+      // 更新對應醫院的 installedEquipment
+      setHospitals(prev => prev.map(h => {
+        if (h.id === equipment.hospitalId) {
+          return {
+            ...h,
+            installedEquipment: [...h.installedEquipment, created],
+            equipmentInstalled: true
+          };
+        }
+        return h;
+      }));
+    }
+  };
+
+  // 更新設備
+  const handleUpdateEquipment = async (equipment: InstalledEquipment) => {
+    // 樂觀更新
+    setHospitals(prev => prev.map(h => {
+      const updatedEquipment = h.installedEquipment.map(eq => 
+        eq.id === equipment.id ? equipment : eq
+      );
+      if (updatedEquipment.some(eq => eq.id === equipment.id)) {
+        return { ...h, installedEquipment: updatedEquipment };
+      }
+      return h;
+    }));
+
+    const success = await updateInstalledEquipment(equipment);
+    if (!success) {
+      loadData(false);
+    }
+  };
+
+  // 刪除設備
+  const handleDeleteEquipment = async (equipmentId: string) => {
+    // 樂觀更新
+    setHospitals(prev => prev.map(h => {
+      const updatedEquipment = h.installedEquipment.filter(eq => eq.id !== equipmentId);
+      return {
+        ...h,
+        installedEquipment: updatedEquipment,
+        equipmentInstalled: updatedEquipment.length > 0
+      };
+    }));
+
+    const success = await deleteInstalledEquipment(equipmentId);
+    if (!success) {
+      loadData(false);
+    }
+  };
+
   // 顯示載入中 - 只在首次載入時顯示
   if (authLoading || (user && initialLoading && !hasLoadedOnce.current)) {
     return (
@@ -193,6 +253,9 @@ const AppContent: React.FC = () => {
             onUpdateNote={handleUpdateNote}
             onUpdateContact={handleUpdateContact}
             onAddUsageRecord={handleAddUsageRecord}
+            onAddEquipment={handleAddEquipment}
+            onUpdateEquipment={handleUpdateEquipment}
+            onDeleteEquipment={handleDeleteEquipment}
             onBack={() => setSelectedHospitalId(null)} 
           />
         );
