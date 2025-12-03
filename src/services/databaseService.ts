@@ -307,6 +307,25 @@ export const createUsageRecord = async (record: Omit<UsageRecord, 'id'>): Promis
   };
 };
 
+export const updateUsageRecord = async (record: UsageRecord): Promise<boolean> => {
+  const { error } = await supabase
+    .from('usage_records')
+    .update({
+      product_code: record.productCode,
+      quantity: record.quantity,
+      date: record.date,
+      type: record.type
+    })
+    .eq('id', record.id);
+
+  if (error) {
+    console.error('Error updating usage record:', error);
+    return false;
+  }
+
+  return true;
+};
+
 // ============== 已安裝設備 CRUD ==============
 
 export const createInstalledEquipment = async (

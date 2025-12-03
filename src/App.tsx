@@ -17,8 +17,10 @@ import {
   updateHospital,
   createNote,
   updateNote,
+  createContact,
   updateContact,
   createUsageRecord,
+  updateUsageRecord,
   createInstalledEquipment,
   updateInstalledEquipment,
   deleteInstalledEquipment
@@ -28,13 +30,13 @@ const AppContent: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
-  
+
   // 資料狀態
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [usageRecords, setUsageRecords] = useState<UsageRecord[]>([]);
-  
+
   // 載入狀態 - 只有首次載入才顯示
   const [initialLoading, setInitialLoading] = useState(true);
   const hasLoadedOnce = useRef(false);
@@ -95,7 +97,7 @@ const AppContent: React.FC = () => {
   const handleUpdateHospital = async (updatedHospital: Hospital) => {
     // 先更新 UI
     setHospitals(prev => prev.map(h => h.id === updatedHospital.id ? updatedHospital : h));
-    
+
     const success = await updateHospital(updatedHospital);
     if (!success) {
       // 失敗時重新載入
@@ -106,7 +108,7 @@ const AppContent: React.FC = () => {
   // 更新聯絡人 (樂觀更新)
   const handleUpdateContact = async (updatedContact: Contact) => {
     setContacts(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
-    
+
     const success = await updateContact(updatedContact);
     if (!success) {
       loadData(false);
@@ -116,7 +118,7 @@ const AppContent: React.FC = () => {
   // 更新筆記 (樂觀更新)
   const handleUpdateNote = async (updatedNote: Note) => {
     setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
-    
+
     const success = await updateNote(updatedNote);
     if (!success) {
       loadData(false);
@@ -159,8 +161,33 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // 更新使用記錄
+  const handleUpdateUsageRecord = async (updatedRecord: UsageRecord) => {
+    setUsageRecords(prev => prev.map(u => u.id === updatedRecord.id ? updatedRecord : u));
+
+    const success = await updateUsageRecord(updatedRecord);
+    if (!success) {
+      loadData(false);
+    }
+  };
+
+  // 新增聯絡人
+  const handleAddContact = async (newContact: Contact) => {
+    const created = await createContact({
+      hospitalId: newContact.hospitalId,
+      name: newContact.name,
+      role: newContact.role,
+      email: newContact.email,
+      phone: newContact.phone,
+      isKeyDecisionMaker: newContact.isKeyDecisionMaker
+    });
+    if (created) {
+      setContacts(prev => [created, ...prev]);
+    }
+  };
+
   // ============== 設備管理 ==============
-  
+
   // 新增設備
   const handleAddEquipment = async (equipment: InstalledEquipment) => {
     const created = await createInstalledEquipment(equipment);
@@ -183,7 +210,7 @@ const AppContent: React.FC = () => {
   const handleUpdateEquipment = async (equipment: InstalledEquipment) => {
     // 樂觀更新
     setHospitals(prev => prev.map(h => {
-      const updatedEquipment = h.installedEquipment.map(eq => 
+      const updatedEquipment = h.installedEquipment.map(eq =>
         eq.id === equipment.id ? equipment : eq
       );
       if (updatedEquipment.some(eq => eq.id === equipment.id)) {
@@ -229,7 +256,7 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Login />;
   }
@@ -241,10 +268,10 @@ const AppContent: React.FC = () => {
         const hospitalNotes = notes.filter(n => n.hospitalId === hospital.id);
         const hospitalContacts = contacts.filter(c => c.hospitalId === hospital.id);
         const hospitalUsage = usageRecords.filter(u => u.hospitalId === hospital.id);
-        
+
         return (
-          <HospitalDetail 
-            hospital={hospital} 
+          <HospitalDetail
+            hospital={hospital}
             notes={hospitalNotes}
             contacts={hospitalContacts}
             usageHistory={hospitalUsage}
@@ -252,11 +279,13 @@ const AppContent: React.FC = () => {
             onAddNote={handleAddNote}
             onUpdateNote={handleUpdateNote}
             onUpdateContact={handleUpdateContact}
+            onAddContact={handleAddContact}
             onAddUsageRecord={handleAddUsageRecord}
+            onUpdateUsageRecord={handleUpdateUsageRecord}
             onAddEquipment={handleAddEquipment}
             onUpdateEquipment={handleUpdateEquipment}
             onDeleteEquipment={handleDeleteEquipment}
-            onBack={() => setSelectedHospitalId(null)} 
+            onBack={() => setSelectedHospitalId(null)}
           />
         );
       }
@@ -267,7 +296,7 @@ const AppContent: React.FC = () => {
         return <Dashboard hospitals={hospitals} usageRecords={usageRecords} notes={notes} />;
       case 'hospitals':
         return (
-          <HospitalList 
+          <HospitalList
             hospitals={hospitals}
             onSelectHospital={(id) => setSelectedHospitalId(id)}
             onAddHospital={handleAddHospital}
