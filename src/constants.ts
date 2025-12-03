@@ -1,5 +1,5 @@
 
-import { Hospital, Product, ProductType, SalesStage, Contact, UsageRecord, Note, HospitalLevel } from './types';
+import { Hospital, Product, ProductType, SalesStage, Contact, UsageRecord, Note, HospitalLevel, Region } from './types';
 
 export const PRODUCTS: Product[] = [
   { code: 'MR810', name: 'F&P 810 System', type: ProductType.EQUIPMENT, description: 'F&P 810 System' },
@@ -11,67 +11,67 @@ export const PRODUCTS: Product[] = [
 ];
 
 export const MOCK_HOSPITALS: Hospital[] = [
-  { 
-    id: '1', 
-    name: '聖馬利亞綜合醫院', 
-    address: '台北市中正區健康路123號', 
-    region: '北區', 
+  {
+    id: '1',
+    name: '聖馬利亞綜合醫院',
+    address: '台北市中正區健康路123號',
+    region: Region.NORTH,
     level: HospitalLevel.MEDICAL_CENTER,
-    stage: SalesStage.TRIAL, 
-    equipmentInstalled: true, 
+    stage: SalesStage.TRIAL,
+    equipmentInstalled: true,
     installedEquipment: [
       { id: 'eq1', productCode: 'MR810', installDate: '2023-08-15', quantity: 5, ownership: '借用' }
     ],
-    lastVisit: '2023-10-15' 
+    lastVisit: '2023-10-15'
   },
-  { 
-    id: '2', 
-    name: '都會中心醫院', 
-    address: '台中市西屯區大道456號', 
-    region: '中區', 
+  {
+    id: '2',
+    name: '都會中心醫院',
+    address: '台中市西屯區大道456號',
+    region: Region.CENTRAL,
     level: HospitalLevel.MEDICAL_CENTER,
-    stage: SalesStage.NEGOTIATION, 
-    equipmentInstalled: true, 
+    stage: SalesStage.NEGOTIATION,
+    equipmentInstalled: true,
     installedEquipment: [
       { id: 'eq2', productCode: 'MR810', installDate: '2023-05-20', quantity: 12, ownership: '買斷' },
       { id: 'eq3', productCode: 'FP950', installDate: '2023-09-10', quantity: 2, ownership: '借用' }
     ],
-    lastVisit: '2023-10-20' 
+    lastVisit: '2023-10-20'
   },
-  { 
-    id: '3', 
-    name: '西區診所', 
-    address: '台南市安平區夕陽路789號', 
-    region: '南區', 
+  {
+    id: '3',
+    name: '西區診所',
+    address: '台南市安平區夕陽路789號',
+    region: Region.SOUTH,
     level: HospitalLevel.LOCAL,
-    stage: SalesStage.LEAD, 
-    equipmentInstalled: false, 
+    stage: SalesStage.LEAD,
+    equipmentInstalled: false,
     installedEquipment: [],
-    lastVisit: '2023-09-01' 
+    lastVisit: '2023-09-01'
   },
-  { 
-    id: '4', 
-    name: '大橡樹醫療中心', 
-    address: '高雄市左營區橡樹巷101號', 
-    region: '南區', 
+  {
+    id: '4',
+    name: '大橡樹醫療中心',
+    address: '高雄市左營區橡樹巷101號',
+    region: Region.SOUTH,
     level: HospitalLevel.REGIONAL,
-    stage: SalesStage.CLOSED_WON, 
-    equipmentInstalled: true, 
+    stage: SalesStage.CLOSED_WON,
+    equipmentInstalled: true,
     installedEquipment: [
-       { id: 'eq4', productCode: 'MR810', installDate: '2023-01-10', quantity: 20, ownership: '買斷' }
+      { id: 'eq4', productCode: 'MR810', installDate: '2023-01-10', quantity: 20, ownership: '買斷' }
     ],
-    lastVisit: '2023-10-25' 
+    lastVisit: '2023-10-25'
   },
-  { 
-    id: '5', 
-    name: '松谷健康中心', 
-    address: '基隆市仁愛區松街202號', 
-    region: '北區', 
+  {
+    id: '5',
+    name: '松谷健康中心',
+    address: '基隆市仁愛區松街202號',
+    region: Region.NORTH,
     level: HospitalLevel.LOCAL,
-    stage: SalesStage.QUALIFICATION, 
-    equipmentInstalled: false, 
+    stage: SalesStage.QUALIFICATION,
+    equipmentInstalled: false,
     installedEquipment: [],
-    lastVisit: '2023-10-10' 
+    lastVisit: '2023-10-10'
   },
 ];
 

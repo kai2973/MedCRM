@@ -69,11 +69,18 @@ export interface InstalledEquipment {
   ownership: OwnershipType;
 }
 
+export enum Region {
+  NORTH = '北區',
+  CENTRAL = '中區',
+  SOUTH = '南區',
+  EAST = '東區'
+}
+
 export interface Hospital {
   id: string;
   name: string;
   address: string;
-  region: string; // 北區, 中區, 南區, 東區
+  region: Region;
   level: HospitalLevel;
   stage: SalesStage;
   equipmentInstalled: boolean; // specifically MR810 (legacy flag, kept for dashboard compatibility)
