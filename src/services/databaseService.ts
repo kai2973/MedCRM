@@ -29,6 +29,7 @@ export const fetchHospitals = async (): Promise<Hospital[]> => {
     stage: h.stage as SalesStage,
     equipmentInstalled: h.equipment_installed,
     lastVisit: h.last_visit || 'Never',
+    notes: h.notes || '',
     installedEquipment: (equipmentData || [])
       .filter(e => e.hospital_id === h.id)
       .map(e => ({
@@ -75,6 +76,7 @@ export const createHospital = async (
     stage: data.stage as SalesStage,
     equipmentInstalled: data.equipment_installed,
     lastVisit: data.last_visit || 'Never',
+    notes: data.notes || '',
     installedEquipment: []
   };
 };
@@ -89,7 +91,8 @@ export const updateHospital = async (hospital: Hospital): Promise<boolean> => {
       stage: hospital.stage,
       level: hospital.level,
       equipment_installed: hospital.equipmentInstalled,
-      last_visit: hospital.lastVisit
+      last_visit: hospital.lastVisit,
+      notes: hospital.notes || null
     })
     .eq('id', hospital.id);
 
@@ -209,7 +212,6 @@ export const fetchNotes = async (): Promise<Note[]> => {
     date: n.created_at,
     author: n.author_name,
     activityType: n.activity_type,
-    // === 新增以下對應 ===
     tags: n.tags || [],
     sentiment: n.sentiment,
     nextStep: n.next_step,
@@ -227,7 +229,6 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
       content: note.content,
       activity_type: note.activityType,
       author_name: note.author,
-      // === 修改這裡：加上 || null 以符合資料庫型別 ===
       tags: note.tags || null,
       sentiment: note.sentiment || null,
       next_step: note.nextStep || null,
@@ -242,23 +243,6 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
     console.error('Error creating note:', error);
     return null;
   }
-
-  // ... 後面的 return 保持不變 (記得要把 snake_case 轉回 camelCase) ...
-  return {
-    id: data.id,
-    hospitalId: data.hospital_id,
-    content: data.content,
-    date: data.created_at,
-    author: data.author_name,
-    activityType: data.activity_type,
-    // 對應回傳資料
-    tags: data.tags || [],
-    sentiment: data.sentiment as any, // 或是 as Sentiment
-    nextStep: data.next_step || undefined,
-    nextStepDate: data.next_step_date || undefined,
-    relatedContactIds: data.related_contact_ids || [],
-    attendees: data.attendees || undefined
-  };
 
   // Check and update hospital last_visit
   const { data: hospital } = await supabase
@@ -283,7 +267,7 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
     id: data.id,
     hospitalId: data.hospital_id,
     content: data.content,
-    date: data.created_at, // Note: created_at is used as date in current implementation, but we passed note.date to logic above
+    date: data.created_at,
     author: data.author_name,
     activityType: data.activity_type,
     tags: data.tags || [],
@@ -315,13 +299,7 @@ export const updateNote = async (note: Note): Promise<boolean> => {
     return false;
   }
 
-  if (error) {
-    console.error('Error updating note:', error);
-    return false;
-  }
-
   // Check and update hospital last_visit
-  // We need to fetch the hospitalId for this note first if it's not passed (it is passed in Note object)
   const { data: hospital } = await supabase
     .from('hospitals')
     .select('last_visit')

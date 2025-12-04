@@ -15,6 +15,15 @@ interface OrdersTabProps {
     onUpdateUsageRecord: (record: UsageRecord) => void;
 }
 
+// 自訂下拉箭頭元件
+const SelectArrow = () => (
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+    </div>
+);
+
 const OrdersTab: React.FC<OrdersTabProps> = ({
     hospital,
     usageHistory,
@@ -94,15 +103,18 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">產品</label>
-                            <select
-                                className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
-                                value={orderForm.productCode}
-                                onChange={(e) => setOrderForm({ ...orderForm, productCode: e.target.value })}
-                            >
-                                {PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE).map(p => (
-                                    <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm appearance-none cursor-pointer"
+                                    value={orderForm.productCode}
+                                    onChange={(e) => setOrderForm({ ...orderForm, productCode: e.target.value })}
+                                >
+                                    {PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE).map(p => (
+                                        <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                                    ))}
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">日期</label>
@@ -125,14 +137,17 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">類型</label>
-                            <select
-                                className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
-                                value={orderForm.type}
-                                onChange={(e) => setOrderForm({ ...orderForm, type: e.target.value as UsageType })}
-                            >
-                                <option value="訂單">採購訂單</option>
-                                <option value="樣品">樣品 / 展示</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm appearance-none cursor-pointer"
+                                    value={orderForm.type}
+                                    onChange={(e) => setOrderForm({ ...orderForm, type: e.target.value as UsageType })}
+                                >
+                                    <option value="訂單">採購訂單</option>
+                                    <option value="樣品">樣品 / 展示</option>
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
                     </div>
                     <div className="flex justify-end pt-2">
@@ -298,15 +313,18 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                         <div className="p-6 space-y-5">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">產品</label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                    value={editingOrder.productCode}
-                                    onChange={(e) => setEditingOrder({ ...editingOrder, productCode: e.target.value })}
-                                >
-                                    {PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE).map(p => (
-                                        <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                        value={editingOrder.productCode}
+                                        onChange={(e) => setEditingOrder({ ...editingOrder, productCode: e.target.value })}
+                                    >
+                                        {PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE).map(p => (
+                                            <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                                        ))}
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">日期</label>
@@ -329,14 +347,17 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">類型</label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                    value={editingOrder.type}
-                                    onChange={(e) => setEditingOrder({ ...editingOrder, type: e.target.value as UsageType })}
-                                >
-                                    <option value="訂單">採購訂單</option>
-                                    <option value="樣品">樣品 / 展示</option>
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                        value={editingOrder.type}
+                                        onChange={(e) => setEditingOrder({ ...editingOrder, type: e.target.value as UsageType })}
+                                    >
+                                        <option value="訂單">採購訂單</option>
+                                        <option value="樣品">樣品 / 展示</option>
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
 
                             <div className="pt-4 flex space-x-3">

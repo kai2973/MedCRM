@@ -46,7 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
     notes.filter(n => filterByDate(n.date)),
     [notes, timeRange]);
 
-  // 1. Sales Trends (Line Chart)
+  // 1. Sales Trends (Bar Chart)
   const usageData = useMemo(() => {
     const groupedByDate: Record<string, any> = {};
     filteredSales.forEach(record => {
@@ -227,23 +227,18 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
           <div className="h-80 w-full">
             {usageData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={usageData}>
-                  <defs>
-                    <linearGradient id="colorAA031" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <BarChart data={usageData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                   <Tooltip
+                    cursor={{ fill: '#f8fafc' }}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                   />
                   <Legend iconType="circle" />
-                  <Line type="monotone" dataKey="AA031" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                  <Line type="monotone" dataKey="AA001" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                </LineChart>
+                  <Bar dataKey="AA001" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="AA031" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">

@@ -35,6 +35,16 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     stage: SalesStage.LEAD
   });
 
+  // 格式化日期的 helper function
+  const formatLastVisit = (lastVisit: string): string => {
+    if (lastVisit === 'Never') return '尚未拜訪';
+    try {
+      return new Date(lastVisit).toLocaleDateString('zh-TW');
+    } catch {
+      return lastVisit;
+    }
+  };
+
   // Derive unique regions for filter dropdown
   const uniqueRegions = useMemo(() => {
     const regions = new Set(hospitals.map(h => h.region));
@@ -75,23 +85,47 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       let comparison = 0;
 
       if (sortConfig.key === 'region') {
-        const aVal = regionOrder[a.region] || 99; // Default to end if unknown
+        const aVal = regionOrder[a.region] || 99;
         const bVal = regionOrder[b.region] || 99;
         comparison = aVal - bVal;
       } else if (sortConfig.key === 'level') {
         const aVal = levelOrder[a.level] || 99;
         const bVal = levelOrder[b.level] || 99;
         comparison = aVal - bVal;
+        // 次要排序：相同等級時按區域排序（固定北→中→南→東）
+        if (comparison === 0) {
+          const aRegion = regionOrder[a.region] || 99;
+          const bRegion = regionOrder[b.region] || 99;
+          comparison = aRegion - bRegion;
+        }
       } else if (sortConfig.key === 'stage') {
         const aVal = stageOrder[a.stage] || 99;
         const bVal = stageOrder[b.stage] || 99;
         comparison = aVal - bVal;
+        // 次要排序：相同狀態時按區域排序（固定北→中→南→東）
+        if (comparison === 0) {
+          const aRegion = regionOrder[a.region] || 99;
+          const bRegion = regionOrder[b.region] || 99;
+          comparison = aRegion - bRegion;
+        }
       } else {
-        // Fallback for name or other string fields
-        const aVal = (a[sortConfig.key] as string).toLowerCase();
-        const bVal = (b[sortConfig.key] as string).toLowerCase();
-        if (aVal < bVal) comparison = -1;
-        if (aVal > bVal) comparison = 1;
+        // 名稱使用中文筆畫排序
+        comparison = a.name.localeCompare(b.name, 'zh-TW-u-co-stroke');
+      }
+
+      // 主要排序方向（次要排序區域始終固定北→中→南→東）
+      if (sortConfig.key === 'level' || sortConfig.key === 'stage') {
+        // 只對主要排序欄位套用方向，區域次要排序保持固定
+        const primaryComparison = sortConfig.key === 'level'
+          ? (levelOrder[a.level] || 99) - (levelOrder[b.level] || 99)
+          : (stageOrder[a.stage] || 99) - (stageOrder[b.stage] || 99);
+        
+        const regionComparison = (regionOrder[a.region] || 99) - (regionOrder[b.region] || 99);
+        
+        if (primaryComparison !== 0) {
+          return sortConfig.direction === 'asc' ? primaryComparison : -primaryComparison;
+        }
+        return regionComparison; // 區域始終固定順序
       }
 
       return sortConfig.direction === 'asc' ? comparison : -comparison;
@@ -167,7 +201,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
   };
 
   return (
-    <div className="p-6 lg:p-10 max-w-[1600px] mx-auto h-full flex flex-col relative">
+    <div className="p-6 lg:p-10 max-w-[1600px] mx-auto h-full flex flex-col relative overflow-hidden">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 space-y-4 md:space-y-0">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">醫院列表</h1>
@@ -175,7 +209,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-5 py-2.5 rounded-xl font-medium flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5"
+          className="hidden md:flex w-full md:w-auto bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-5 py-2.5 rounded-xl font-medium items-center justify-center space-x-2 shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5"
         >
           <Plus size={20} />
           <span>新增醫院</span>
@@ -183,36 +217,71 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/60 mb-6 transition-all focus-within:ring-2 focus-within:ring-blue-100">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full md:w-96 group">
-            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+      <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/60 mb-6 transition-all focus-within:ring-2 focus-within:ring-blue-100">
+        <div className="flex gap-3 items-center">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input
               type="text"
               placeholder="搜尋醫院、區域..."
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`w-full md:w-auto flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border font-medium transition-colors ${isFilterOpen || activeFilters.stage !== 'All' || activeFilters.region !== 'All'
+            className={`shrink-0 flex items-center justify-center w-11 h-11 md:w-auto md:h-auto md:px-4 md:py-2.5 rounded-xl border font-medium transition-colors ${isFilterOpen || activeFilters.stage !== 'All' || activeFilters.region !== 'All'
                 ? 'bg-blue-50 border-blue-200 text-blue-700'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
           >
             <Filter size={18} />
-            <span>篩選</span>
+            <span className="hidden md:inline ml-2">篩選</span>
             {(activeFilters.stage !== 'All' || activeFilters.region !== 'All') && (
-              <span className="flex h-2 w-2 rounded-full bg-blue-600 ml-1 ring-2 ring-white"></span>
+              <span className="hidden md:flex h-2 w-2 rounded-full bg-blue-600 ml-1 ring-2 ring-white"></span>
             )}
           </button>
+          {/* Mobile Add Button */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="md:hidden shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/20 active:scale-95 transition-transform"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+
+        {/* Mobile Sort Bar - Inside the search box */}
+        <div className="md:hidden mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <span className="text-xs text-slate-500 font-medium shrink-0">排序：</span>
+          {([
+            { key: 'name', label: '名稱' },
+            { key: 'region', label: '區域' },
+            { key: 'level', label: '等級' },
+            { key: 'stage', label: '狀態' }
+          ] as { key: SortKey; label: string }[]).map((item) => (
+            <button
+              key={item.key}
+              onClick={() => handleSort(item.key)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors ${
+                sortConfig?.key === item.key
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {item.label}
+              {sortConfig?.key === item.key && (
+                sortConfig.direction === 'asc' 
+                  ? <ArrowUp size={12} /> 
+                  : <ArrowDown size={12} />
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Expandable Filter Panel */}
         {isFilterOpen && (
-          <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 animate-fade-in">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">銷售階段</label>
               <select
@@ -247,8 +316,8 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       </div>
 
       {/* Desktop Table View (Hidden on Mobile) */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden flex-1 flex flex-col">
-        <div className="overflow-x-auto">
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 flex-1 min-h-0 overflow-hidden">
+        <div className="overflow-auto h-full">
           <table className="w-full text-left">
             <thead className="bg-slate-50/80 border-b border-slate-200">
               <tr>
@@ -297,7 +366,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
                   <td className="px-6 py-5">
                     {getEquipmentSummary(hospital)}
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-500 font-medium">{hospital.lastVisit}</td>
+                  <td className="px-6 py-5 text-sm text-slate-500 font-medium">{formatLastVisit(hospital.lastVisit)}</td>
                   <td className="px-6 py-5 text-slate-400 text-right">
                     <ChevronRight size={18} className="group-hover:text-blue-500 inline-block transition-transform group-hover:translate-x-1" />
                   </td>
@@ -309,7 +378,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       </div>
 
       {/* Mobile Card View (Hidden on Desktop) */}
-      <div className="md:hidden space-y-4">
+      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-4 pb-4">
         {sortedHospitals.map((hospital) => (
           <div
             key={hospital.id}
@@ -345,7 +414,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">上次拜訪</span>
-                <span className="text-slate-900 font-medium">{hospital.lastVisit}</span>
+                <span className="text-slate-900 font-medium">{formatLastVisit(hospital.lastVisit)}</span>
               </div>
             </div>
           </div>
@@ -392,23 +461,37 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">區域</label>
-                  <select
-                    className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-                    value={newHospital.region}
-                    onChange={(e) => setNewHospital({ ...newHospital, region: e.target.value as Region })}
-                  >
-                    {Object.values(Region).map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white appearance-none cursor-pointer"
+                      value={newHospital.region}
+                      onChange={(e) => setNewHospital({ ...newHospital, region: e.target.value as Region })}
+                    >
+                      {Object.values(Region).map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">等級</label>
-                  <select
-                    className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-                    value={newHospital.level}
-                    onChange={(e) => setNewHospital({ ...newHospital, level: e.target.value as HospitalLevel })}
-                  >
-                    {Object.values(HospitalLevel).map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white appearance-none cursor-pointer"
+                      value={newHospital.level}
+                      onChange={(e) => setNewHospital({ ...newHospital, level: e.target.value as HospitalLevel })}
+                    >
+                      {Object.values(HospitalLevel).map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div>
@@ -423,13 +506,20 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">初始階段</label>
-                <select
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-                  value={newHospital.stage}
-                  onChange={(e) => setNewHospital({ ...newHospital, stage: e.target.value as SalesStage })}
-                >
-                  {Object.values(SalesStage).map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <div className="relative">
+                  <select
+                    className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white appearance-none cursor-pointer"
+                    value={newHospital.stage}
+                    onChange={(e) => setNewHospital({ ...newHospital, stage: e.target.value as SalesStage })}
+                  >
+                    {Object.values(SalesStage).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div className="pt-4 flex space-x-4">
                 <button

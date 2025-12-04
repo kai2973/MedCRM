@@ -23,6 +23,8 @@ export interface Profile {
   full_name: string;
   role: string;
   region?: string;
+  bio?: string;
+  avatar_url?: string;
   created_at: string;
   updated_at: string;
 }

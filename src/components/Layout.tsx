@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Building2, Settings, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -9,14 +9,13 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
-  const { profile, signOut } = useAuth();  // ← 加這行
+  const { profile, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
     { id: 'hospitals', label: '醫院列表', icon: Building2 },
-    // { id: 'products', label: '庫存管理', icon: Package }, 
   ];
 
   const handleNavClick = (id: string) => {
@@ -47,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         `}
       >
         {/* Brand Header */}
-        <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-6'} border-b border-slate-800/50 bg-[#0f172a]`}>
+        <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-6'} border-b border-slate-800/50 bg-[#0f172a] shrink-0`}>
           <div className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'space-x-3'} overflow-hidden`}>
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-500/20 flex-shrink-0">
               <Activity size={22} className="text-white" />
@@ -68,10 +67,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
-          <div className={`text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2 ${isCollapsed ? 'text-center' : ''}`}>
-            {isCollapsed ? '選單' : '主選單'}
-          </div>
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-hidden">
+          {(!isCollapsed || isMobileMenuOpen) && (
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">
+              主選單
+            </div>
+          )}
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -106,7 +107,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         </nav>
         
         {/* Collapse Toggle */}
-        <div className="hidden md:flex px-4 py-3 border-t border-slate-800/50">
+        <div className="hidden md:flex px-4 py-3 border-t border-slate-800/50 shrink-0">
              <button 
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className="w-full py-2.5 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all duration-200"
@@ -116,11 +117,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         </div>
 
         {/* User Profile / Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-inner flex-shrink-0 cursor-pointer">
-              {profile?.full_name?.charAt(0) || 'U'}
-            </div>
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50 shrink-0">
+          <div 
+            onClick={() => {
+              setActiveTab('settings');
+              setIsMobileMenuOpen(false);
+            }}
+            className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} p-2 -m-2 rounded-xl cursor-pointer transition-colors hover:bg-slate-800/50`}
+          >
+            {profile?.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt="頭像"
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-inner flex-shrink-0">
+                {profile?.full_name?.charAt(0) || 'U'}
+              </div>
+            )}
             {(!isCollapsed || isMobileMenuOpen) && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{profile?.full_name || 'User'}</p>
@@ -128,16 +143,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
               </div>
             )}
           </div>
-          {/* Footer Actions (Expanded only) */}
+          {/* Logout Button (Expanded only) */}
            {(!isCollapsed || isMobileMenuOpen) && (
-             <div className="mt-4 space-y-1">
-                <button 
-                  onClick={() => setActiveTab('settings')}
-                  className={`flex items-center space-x-3 px-3 py-2 w-full rounded-lg transition-colors text-sm ${activeTab === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
-                >
-                    <Settings size={16} />
-                    <span>設定</span>
-                </button>
+             <div className="mt-3 pt-3 border-t border-slate-800/50">
                 <button 
                   onClick={() => signOut()}
                   className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50 transition-colors text-sm"
@@ -151,9 +159,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto relative w-full flex flex-col bg-[#f8fafc]">
+      <main className="flex-1 overflow-hidden relative w-full flex flex-col bg-[#f8fafc]">
         {/* Mobile Header */}
-        <div className="md:hidden glass-header border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <div className="md:hidden glass-header border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-50 shadow-sm shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-1.5 rounded-lg shadow-sm">
               <Activity size={18} className="text-white" />
@@ -165,7 +173,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           </button>
         </div>
 
-        <div className="min-h-full">
+        <div className="flex-1 overflow-auto">
             {children}
         </div>
       </main>

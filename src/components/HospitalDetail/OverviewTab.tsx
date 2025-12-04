@@ -38,6 +38,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     // 設備產品列表（主機類）
     const equipmentProducts = PRODUCTS.filter(p => p.type === ProductType.EQUIPMENT);
 
+    // 格式化日期的 helper function
+    const formatLastVisit = (lastVisit: string): string => {
+        if (lastVisit === 'Never') return '尚未拜訪';
+        try {
+            return new Date(lastVisit).toLocaleDateString('zh-TW');
+        } catch {
+            return lastVisit;
+        }
+    };
+
     // Equipment handlers
     const handleSaveEquipment = async () => {
         setIsSavingEquipment(true);
@@ -129,16 +139,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-5">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">設備型號</label>
-                                <select
-                                    className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
-                                    value={equipmentForm.productCode}
-                                    onChange={(e) => setEquipmentForm({ ...equipmentForm, productCode: e.target.value })}
-                                    disabled={isSavingEquipment}
-                                >
-                                    {equipmentProducts.map(p => (
-                                        <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm appearance-none cursor-pointer"
+                                        value={equipmentForm.productCode}
+                                        onChange={(e) => setEquipmentForm({ ...equipmentForm, productCode: e.target.value })}
+                                        disabled={isSavingEquipment}
+                                    >
+                                        {equipmentProducts.map(p => (
+                                            <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                                        ))}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">數量</label>
@@ -163,15 +180,22 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">所有權</label>
-                                <select
-                                    className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
-                                    value={equipmentForm.ownership}
-                                    onChange={(e) => setEquipmentForm({ ...equipmentForm, ownership: e.target.value as '租賃' | '買斷' })}
-                                    disabled={isSavingEquipment}
-                                >
-                                    <option value="租賃">租賃</option>
-                                    <option value="買斷">買斷</option>
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm appearance-none cursor-pointer"
+                                        value={equipmentForm.ownership}
+                                        onChange={(e) => setEquipmentForm({ ...equipmentForm, ownership: e.target.value as '租賃' | '買斷' })}
+                                        disabled={isSavingEquipment}
+                                    >
+                                        <option value="租賃">租賃</option>
+                                        <option value="買斷">買斷</option>
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end">
@@ -266,7 +290,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-50">
                         <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">上次拜訪</p>
-                        <p className="font-bold text-slate-900 text-lg">{hospital.lastVisit}</p>
+                        <p className="font-bold text-slate-900 text-lg">{formatLastVisit(hospital.lastVisit)}</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-50">
                         <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">聯絡人數</p>
@@ -300,16 +324,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             <div className="p-6 space-y-5">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">設備型號</label>
-                                    <select
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                        value={editingEquipment.productCode}
-                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })}
-                                        disabled={isSavingEquipment}
-                                    >
-                                        {equipmentProducts.map(p => (
-                                            <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                            value={editingEquipment.productCode}
+                                            onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })}
+                                            disabled={isSavingEquipment}
+                                        >
+                                            {equipmentProducts.map(p => (
+                                                <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">數量</label>
@@ -334,15 +365,22 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">所有權</label>
-                                    <select
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                        value={editingEquipment.ownership}
-                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })}
-                                        disabled={isSavingEquipment}
-                                    >
-                                        <option value="租賃">租賃</option>
-                                        <option value="買斷">買斷</option>
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                            value={editingEquipment.ownership}
+                                            onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })}
+                                            disabled={isSavingEquipment}
+                                        >
+                                            <option value="租賃">租賃</option>
+                                            <option value="買斷">買斷</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 flex space-x-3">

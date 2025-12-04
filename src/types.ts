@@ -91,9 +91,10 @@ export interface Hospital {
   region: Region;
   level: HospitalLevel;
   stage: SalesStage;
-  equipmentInstalled: boolean; // specifically MR810 (legacy flag, kept for dashboard compatibility)
+  equipmentInstalled: boolean;
   installedEquipment: InstalledEquipment[];
   lastVisit: string;
+  notes?: string; // 備註欄位
 }
 
 export interface AIResponse {

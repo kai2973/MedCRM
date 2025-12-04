@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Layout from './components/Layout';
@@ -26,10 +27,113 @@ import {
   deleteInstalledEquipment
 } from './services/databaseService';
 
+// 醫院詳情頁面包裝元件
+const HospitalDetailWrapper: React.FC<{
+  hospitals: Hospital[];
+  notes: Note[];
+  contacts: Contact[];
+  usageRecords: UsageRecord[];
+  onUpdateHospital: (hospital: Hospital) => void;
+  onAddNote: (note: Note) => void;
+  onUpdateNote: (note: Note) => void;
+  onUpdateContact: (contact: Contact) => void;
+  onAddContact: (contact: Contact) => void;
+  onAddUsageRecord: (record: UsageRecord) => void;
+  onUpdateUsageRecord: (record: UsageRecord) => void;
+  onAddEquipment: (equipment: InstalledEquipment) => void;
+  onUpdateEquipment: (equipment: InstalledEquipment) => void;
+  onDeleteEquipment: (equipmentId: string) => void;
+}> = ({
+  hospitals,
+  notes,
+  contacts,
+  usageRecords,
+  onUpdateHospital,
+  onAddNote,
+  onUpdateNote,
+  onUpdateContact,
+  onAddContact,
+  onAddUsageRecord,
+  onUpdateUsageRecord,
+  onAddEquipment,
+  onUpdateEquipment,
+  onDeleteEquipment
+}) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const hospital = hospitals.find(h => h.id === id);
+
+  if (!hospital) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-500 mb-4">找不到此醫院</p>
+          <button
+            onClick={() => navigate('/hospitals')}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            返回醫院列表
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const hospitalNotes = notes.filter(n => n.hospitalId === hospital.id);
+  const hospitalContacts = contacts.filter(c => c.hospitalId === hospital.id);
+  const hospitalUsage = usageRecords.filter(u => u.hospitalId === hospital.id);
+
+  return (
+    <HospitalDetail
+      hospital={hospital}
+      notes={hospitalNotes}
+      contacts={hospitalContacts}
+      usageHistory={hospitalUsage}
+      onUpdateHospital={onUpdateHospital}
+      onAddNote={onAddNote}
+      onUpdateNote={onUpdateNote}
+      onUpdateContact={onUpdateContact}
+      onAddContact={onAddContact}
+      onAddUsageRecord={onAddUsageRecord}
+      onUpdateUsageRecord={onUpdateUsageRecord}
+      onAddEquipment={onAddEquipment}
+      onUpdateEquipment={onUpdateEquipment}
+      onDeleteEquipment={onDeleteEquipment}
+      onBack={() => navigate('/hospitals')}
+    />
+  );
+};
+
+// 醫院列表包裝元件
+const HospitalListWrapper: React.FC<{
+  hospitals: Hospital[];
+  onAddHospital: (data: Pick<Hospital, 'name' | 'region' | 'address' | 'stage' | 'level'>) => void;
+}> = ({ hospitals, onAddHospital }) => {
+  const navigate = useNavigate();
+
+  return (
+    <HospitalList
+      hospitals={hospitals}
+      onSelectHospital={(id) => navigate(`/hospitals/${id}`)}
+      onAddHospital={onAddHospital}
+    />
+  );
+};
+
 const AppContent: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // 從 URL 取得當前 tab
+  const getActiveTabFromPath = (pathname: string): string => {
+    if (pathname.startsWith('/hospitals')) return 'hospitals';
+    if (pathname === '/settings') return 'settings';
+    return 'dashboard';
+  };
+
+  const activeTab = getActiveTabFromPath(location.pathname);
 
   // 資料狀態
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
@@ -287,71 +391,69 @@ const AppContent: React.FC = () => {
     return <Login />;
   }
 
-  const renderContent = () => {
-    if (selectedHospitalId) {
-      const hospital = hospitals.find(h => h.id === selectedHospitalId);
-      if (hospital) {
-        const hospitalNotes = notes.filter(n => n.hospitalId === hospital.id);
-        const hospitalContacts = contacts.filter(c => c.hospitalId === hospital.id);
-        const hospitalUsage = usageRecords.filter(u => u.hospitalId === hospital.id);
-
-        return (
-          <HospitalDetail
-            hospital={hospital}
-            notes={hospitalNotes}
-            contacts={hospitalContacts}
-            usageHistory={hospitalUsage}
-            onUpdateHospital={handleUpdateHospital}
-            onAddNote={handleAddNote}
-            onUpdateNote={handleUpdateNote}
-            onUpdateContact={handleUpdateContact}
-            onAddContact={handleAddContact}
-            onAddUsageRecord={handleAddUsageRecord}
-            onUpdateUsageRecord={handleUpdateUsageRecord}
-            onAddEquipment={handleAddEquipment}
-            onUpdateEquipment={handleUpdateEquipment}
-            onDeleteEquipment={handleDeleteEquipment}
-            onBack={() => setSelectedHospitalId(null)}
-          />
-        );
-      }
-    }
-
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard hospitals={hospitals} usageRecords={usageRecords} notes={notes} />;
-      case 'hospitals':
-        return (
-          <HospitalList
-            hospitals={hospitals}
-            onSelectHospital={(id) => setSelectedHospitalId(id)}
-            onAddHospital={handleAddHospital}
-          />
-        );
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard hospitals={hospitals} usageRecords={usageRecords} notes={notes} />;
-    }
-  };
-
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    setSelectedHospitalId(null);
+    switch (tab) {
+      case 'dashboard':
+        navigate('/');
+        break;
+      case 'hospitals':
+        navigate('/hospitals');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
+      default:
+        navigate('/');
+    }
   };
 
   return (
     <Layout activeTab={activeTab} setActiveTab={handleTabChange}>
-      {renderContent()}
+      <Routes>
+        <Route path="/" element={<Dashboard hospitals={hospitals} usageRecords={usageRecords} notes={notes} />} />
+        <Route
+          path="/hospitals"
+          element={
+            <HospitalListWrapper
+              hospitals={hospitals}
+              onAddHospital={handleAddHospital}
+            />
+          }
+        />
+        <Route
+          path="/hospitals/:id"
+          element={
+            <HospitalDetailWrapper
+              hospitals={hospitals}
+              notes={notes}
+              contacts={contacts}
+              usageRecords={usageRecords}
+              onUpdateHospital={handleUpdateHospital}
+              onAddNote={handleAddNote}
+              onUpdateNote={handleUpdateNote}
+              onUpdateContact={handleUpdateContact}
+              onAddContact={handleAddContact}
+              onAddUsageRecord={handleAddUsageRecord}
+              onUpdateUsageRecord={handleUpdateUsageRecord}
+              onAddEquipment={handleAddEquipment}
+              onUpdateEquipment={handleUpdateEquipment}
+              onDeleteEquipment={handleDeleteEquipment}
+            />
+          }
+        />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
     </Layout>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 

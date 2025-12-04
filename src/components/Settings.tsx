@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { User, Bell, Shield, Database, Save, Check, Loader } from 'lucide-react';
+import { User, Bell, Shield, Database, Save, Check, Loader, Pencil, X, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -11,11 +11,27 @@ const Settings: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const hasLoadedOnce = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 編輯模式狀態
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // 頭像上傳狀態
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Profile Form State
   const [profile, setProfile] = useState({
     full_name: '',
     email: '',
+    role: '',
+    region: '',
+    bio: '',
+    avatar_url: ''
+  });
+
+  // 編輯時的暫存資料
+  const [editForm, setEditForm] = useState({
+    full_name: '',
     role: '',
     region: '',
     bio: ''
@@ -63,7 +79,8 @@ const Settings: React.FC = () => {
           email: data.email || user.email || '',
           role: data.role || '業務代表',
           region: data.region || '北區',
-          bio: data.bio || ''
+          bio: data.bio || '',
+          avatar_url: data.avatar_url || ''
         });
       } else {
         // 如果沒有 profile，使用 user email
@@ -97,6 +114,99 @@ const Settings: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadProfile, user]);
 
+  // 處理頭像上傳
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // 檢查檔案類型
+    if (!file.type.startsWith('image/')) {
+      alert('請選擇圖片檔案');
+      return;
+    }
+
+    // 檢查檔案大小 (最大 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('圖片大小不能超過 2MB');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // 產生唯一檔名
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 上傳到 Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert('上傳失敗，請稍後再試');
+        return;
+      }
+
+      // 取得公開 URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 更新 profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        });
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        alert('更新失敗，請稍後再試');
+        return;
+      }
+
+      // 更新本地狀態
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('上傳失敗，請稍後再試');
+    } finally {
+      setIsUploadingAvatar(false);
+      // 清除 input 讓同一張圖可以再選
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // 開始編輯
+  const handleStartEdit = () => {
+    setEditForm({
+      full_name: profile.full_name,
+      role: profile.role,
+      region: profile.region,
+      bio: profile.bio
+    });
+    setIsEditing(true);
+  };
+
+  // 取消編輯
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({
+      full_name: '',
+      role: '',
+      region: '',
+      bio: ''
+    });
+  };
+
   // 儲存 profile
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -109,11 +219,11 @@ const Settings: React.FC = () => {
         .from('profiles')
         .upsert({
           id: user.id,
-          full_name: profile.full_name,
+          full_name: editForm.full_name,
           email: profile.email,
-          role: profile.role,
-          region: profile.region,
-          bio: profile.bio,
+          role: editForm.role,
+          region: editForm.region,
+          bio: editForm.bio,
           updated_at: new Date().toISOString()
         });
 
@@ -121,6 +231,15 @@ const Settings: React.FC = () => {
         console.error('Error saving profile:', error);
         alert('儲存失敗，請稍後再試');
       } else {
+        // 更新顯示的 profile
+        setProfile(prev => ({
+          ...prev,
+          full_name: editForm.full_name,
+          role: editForm.role,
+          region: editForm.region,
+          bio: editForm.bio
+        }));
+        setIsEditing(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       }
@@ -267,100 +386,191 @@ const Settings: React.FC = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
                     {activeSection === 'profile' && (
                         <div className="space-y-6 animate-fade-in">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900">個人資料</h2>
-                                <p className="text-sm text-slate-500 mt-1">更新您的個人詳細資訊與簡介。</p>
-                            </div>
-                            <div className="flex items-center space-x-6 pb-6 border-b border-slate-100">
-                                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl shadow-inner">
-                                    {profile.full_name?.charAt(0) || 'U'}
-                                </div>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-slate-500">頭像會顯示您名字的第一個字</p>
+                                    <h2 className="text-xl font-bold text-slate-900">個人資料</h2>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        {isEditing ? '編輯您的個人詳細資訊。' : '查看您的個人詳細資訊與簡介。'}
+                                    </p>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">全名</label>
-                                    <input 
-                                        type="text" 
-                                        value={profile.full_name}
-                                        onChange={(e) => setProfile({...profile, full_name: e.target.value})}
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                        placeholder="請輸入您的姓名"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">電子郵件</label>
-                                    <input 
-                                        type="email" 
-                                        value={profile.email}
-                                        disabled
-                                        className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-2.5 outline-none cursor-not-allowed"
-                                    />
-                                    <p className="text-xs text-slate-400 mt-1">電子郵件無法變更</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">職稱</label>
-                                    <input 
-                                        type="text" 
-                                        value={profile.role}
-                                        onChange={(e) => setProfile({...profile, role: e.target.value})}
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                        placeholder="例如：資深業務代表"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">區域</label>
-                                    <select 
-                                        value={profile.region}
-                                        onChange={(e) => setProfile({...profile, region: e.target.value})}
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                                {!isEditing && (
+                                    <button
+                                        onClick={handleStartEdit}
+                                        className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                     >
-                                        <option>北區</option>
-                                        <option>中區</option>
-                                        <option>南區</option>
-                                        <option>東區</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">簡介</label>
-                                    <textarea 
-                                        rows={4}
-                                        value={profile.bio}
-                                        onChange={(e) => setProfile({...profile, bio: e.target.value})}
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-                                        placeholder="簡單介紹一下自己..."
+                                        <Pencil size={16} />
+                                        <span>編輯</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* 頭像區塊 */}
+                            <div className="flex items-center space-x-6 pb-6 border-b border-slate-100">
+                                <div className="relative group">
+                                    {profile.avatar_url ? (
+                                        <img 
+                                            src={profile.avatar_url} 
+                                            alt="頭像"
+                                            className="w-20 h-20 rounded-full object-cover shadow-inner"
+                                        />
+                                    ) : (
+                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl shadow-inner">
+                                            {(isEditing ? editForm.full_name : profile.full_name)?.charAt(0) || 'U'}
+                                        </div>
+                                    )}
+                                    {/* 上傳按鈕 overlay */}
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploadingAvatar}
+                                        className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer disabled:cursor-wait"
+                                    >
+                                        {isUploadingAvatar ? (
+                                            <Loader size={24} className="text-white animate-spin" />
+                                        ) : (
+                                            <Camera size={24} className="text-white" />
+                                        )}
+                                    </button>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleAvatarUpload}
+                                        className="hidden"
                                     />
                                 </div>
+                                <div>
+                                    <p className="text-lg font-semibold text-slate-900">
+                                        {isEditing ? editForm.full_name || '未設定姓名' : profile.full_name || '未設定姓名'}
+                                    </p>
+                                    <p className="text-sm text-slate-500">{profile.email}</p>
+                                    <p className="text-xs text-slate-400 mt-1">點擊頭像更換照片</p>
+                                </div>
                             </div>
-                            
-                            {/* Profile Save Button */}
-                            <div className="pt-4 flex items-center justify-end space-x-4">
-                                {saveSuccess && (
-                                    <span className="text-sm text-green-600 font-medium flex items-center animate-fade-in">
-                                        <Check size={16} className="mr-1.5" />
-                                        變更已儲存
-                                    </span>
-                                )}
-                                <button 
-                                    onClick={handleSaveProfile}
-                                    disabled={isSaving}
-                                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center disabled:opacity-50"
-                                >
-                                    {isSaving ? (
-                                        <>
-                                            <Loader size={18} className="animate-spin mr-2" />
-                                            儲存中...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save size={18} className="mr-2" />
-                                            儲存變更
-                                        </>
+
+                            {/* 檢視模式 */}
+                            {!isEditing && (
+                                <div className="space-y-5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500 mb-1">全名</p>
+                                            <p className="text-slate-900">{profile.full_name || '未設定'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500 mb-1">電子郵件</p>
+                                            <p className="text-slate-900">{profile.email}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500 mb-1">職稱</p>
+                                            <p className="text-slate-900">{profile.role || '未設定'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500 mb-1">區域</p>
+                                            <p className="text-slate-900">{profile.region || '未設定'}</p>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <p className="text-sm font-medium text-slate-500 mb-1">簡介</p>
+                                            <p className="text-slate-900 whitespace-pre-wrap">{profile.bio || '未設定'}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {saveSuccess && (
+                                        <div className="flex items-center text-sm text-green-600 font-medium animate-fade-in">
+                                            <Check size={16} className="mr-1.5" />
+                                            變更已儲存
+                                        </div>
                                     )}
-                                </button>
-                            </div>
+                                </div>
+                            )}
+
+                            {/* 編輯模式 */}
+                            {isEditing && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">全名</label>
+                                            <input 
+                                                type="text" 
+                                                value={editForm.full_name}
+                                                onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
+                                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                                placeholder="請輸入您的姓名"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">電子郵件</label>
+                                            <input 
+                                                type="email" 
+                                                value={profile.email}
+                                                disabled
+                                                className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-2.5 outline-none cursor-not-allowed"
+                                            />
+                                            <p className="text-xs text-slate-400 mt-1">電子郵件無法變更</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">職稱</label>
+                                            <input 
+                                                type="text" 
+                                                value={editForm.role}
+                                                onChange={(e) => setEditForm({...editForm, role: e.target.value})}
+                                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                                placeholder="例如：資深業務代表"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">區域</label>
+                                            <select 
+                                                value={editForm.region}
+                                                onChange={(e) => setEditForm({...editForm, region: e.target.value})}
+                                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                                            >
+                                                <option>北區</option>
+                                                <option>中區</option>
+                                                <option>南區</option>
+                                                <option>東區</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">簡介</label>
+                                            <textarea 
+                                                rows={4}
+                                                value={editForm.bio}
+                                                onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                                                className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                                                placeholder="簡單介紹一下自己..."
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 編輯模式按鈕 */}
+                                    <div className="pt-4 flex items-center justify-end space-x-3">
+                                        <button 
+                                            onClick={handleCancelEdit}
+                                            disabled={isSaving}
+                                            className="px-6 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl font-medium transition-colors flex items-center disabled:opacity-50"
+                                        >
+                                            <X size={18} className="mr-1.5" />
+                                            取消
+                                        </button>
+                                        <button 
+                                            onClick={handleSaveProfile}
+                                            disabled={isSaving}
+                                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center disabled:opacity-50"
+                                        >
+                                            {isSaving ? (
+                                                <>
+                                                    <Loader size={18} className="animate-spin mr-2" />
+                                                    儲存中...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save size={18} className="mr-2" />
+                                                    儲存
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

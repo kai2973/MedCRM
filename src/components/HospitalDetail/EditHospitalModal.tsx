@@ -25,7 +25,7 @@ const EditHospitalModal: React.FC<EditHospitalModalProps> = ({
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'monthlyOPD' || name === 'beds' ? Number(value) : value
+            [name]: value
         }));
     };
 
@@ -36,6 +36,15 @@ const EditHospitalModal: React.FC<EditHospitalModalProps> = ({
     };
 
     if (!isOpen) return null;
+
+    // 自訂下拉箭頭元件
+    const SelectArrow = () => (
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -68,86 +77,62 @@ const EditHospitalModal: React.FC<EditHospitalModalProps> = ({
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">區域</label>
-                            <select
-                                name="region"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                value={formData.region}
-                                onChange={handleChange}
-                            >
-                                {Object.values(Region).map(r => (
-                                    <option key={r} value={r}>{r}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    name="region"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                    value={formData.region}
+                                    onChange={handleChange}
+                                >
+                                    {Object.values(Region).map(r => (
+                                        <option key={r} value={r}>{r}</option>
+                                    ))}
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">等級</label>
-                            <select
-                                name="level"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                value={formData.level}
-                                onChange={handleChange}
-                            >
-                                {Object.values(HospitalLevel).map(l => (
-                                    <option key={l} value={l}>{l}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">系統</label>
-                            <input
-                                type="text"
-                                name="system"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                value={formData.system}
-                                onChange={handleChange}
-                            />
+                            <div className="relative">
+                                <select
+                                    name="level"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                    value={formData.level}
+                                    onChange={handleChange}
+                                >
+                                    {Object.values(HospitalLevel).map(l => (
+                                        <option key={l} value={l}>{l}</option>
+                                    ))}
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">銷售階段</label>
-                            <select
-                                name="stage"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all"
-                                value={formData.stage}
-                                onChange={handleChange}
-                            >
-                                {Object.values(SalesStage).map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    name="stage"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                    value={formData.stage}
+                                    onChange={handleChange}
+                                >
+                                    {Object.values(SalesStage).map(s => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">月門診量</label>
-                            <input
-                                type="number"
-                                name="monthlyOPD"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                value={formData.monthlyOPD}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">總床數</label>
-                            <input
-                                type="number"
-                                name="beds"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                value={formData.beds}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div className="col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">下一步計畫</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">地址</label>
                             <input
                                 type="text"
-                                name="nextStep"
+                                name="address"
                                 className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                value={formData.nextStep}
+                                value={formData.address}
                                 onChange={handleChange}
                             />
                         </div>
@@ -157,8 +142,9 @@ const EditHospitalModal: React.FC<EditHospitalModalProps> = ({
                             <textarea
                                 name="notes"
                                 className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all h-24 resize-none"
-                                value={formData.notes}
+                                value={formData.notes || ''}
                                 onChange={handleChange}
+                                placeholder="輸入備註..."
                             />
                         </div>
                     </form>
