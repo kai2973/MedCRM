@@ -208,7 +208,14 @@ export const fetchNotes = async (): Promise<Note[]> => {
     content: n.content,
     date: n.created_at,
     author: n.author_name,
-    activityType: n.activity_type
+    activityType: n.activity_type,
+    // === 新增以下對應 ===
+    tags: n.tags || [],
+    sentiment: n.sentiment,
+    nextStep: n.next_step,
+    nextStepDate: n.next_step_date,
+    relatedContactIds: n.related_contact_ids || [],
+    attendees: n.attendees || undefined
   }));
 };
 
@@ -219,7 +226,14 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
       hospital_id: note.hospitalId,
       content: note.content,
       activity_type: note.activityType,
-      author_name: note.author
+      author_name: note.author,
+      // === 修改這裡：加上 || null 以符合資料庫型別 ===
+      tags: note.tags || null,
+      sentiment: note.sentiment || null,
+      next_step: note.nextStep || null,
+      next_step_date: note.nextStepDate || null,
+      related_contact_ids: note.relatedContactIds || null,
+      attendees: note.attendees || null
     })
     .select()
     .single();
@@ -229,13 +243,55 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
     return null;
   }
 
+  // ... 後面的 return 保持不變 (記得要把 snake_case 轉回 camelCase) ...
   return {
     id: data.id,
     hospitalId: data.hospital_id,
     content: data.content,
     date: data.created_at,
     author: data.author_name,
-    activityType: data.activity_type
+    activityType: data.activity_type,
+    // 對應回傳資料
+    tags: data.tags || [],
+    sentiment: data.sentiment as any, // 或是 as Sentiment
+    nextStep: data.next_step || undefined,
+    nextStepDate: data.next_step_date || undefined,
+    relatedContactIds: data.related_contact_ids || [],
+    attendees: data.attendees || undefined
+  };
+
+  // Check and update hospital last_visit
+  const { data: hospital } = await supabase
+    .from('hospitals')
+    .select('last_visit')
+    .eq('id', note.hospitalId)
+    .single();
+
+  if (hospital) {
+    const noteDate = new Date(note.date);
+    const lastVisit = hospital.last_visit === 'Never' ? new Date(0) : new Date(hospital.last_visit);
+
+    if (noteDate > lastVisit) {
+      await supabase
+        .from('hospitals')
+        .update({ last_visit: note.date })
+        .eq('id', note.hospitalId);
+    }
+  }
+
+  return {
+    id: data.id,
+    hospitalId: data.hospital_id,
+    content: data.content,
+    date: data.created_at, // Note: created_at is used as date in current implementation, but we passed note.date to logic above
+    author: data.author_name,
+    activityType: data.activity_type,
+    tags: data.tags || [],
+    sentiment: data.sentiment as any,
+    nextStep: data.next_step || undefined,
+    nextStepDate: data.next_step_date || undefined,
+    relatedContactIds: data.related_contact_ids || [],
+    attendees: data.attendees || undefined
   };
 };
 
@@ -244,13 +300,44 @@ export const updateNote = async (note: Note): Promise<boolean> => {
     .from('notes')
     .update({
       content: note.content,
-      activity_type: note.activityType
+      activity_type: note.activityType,
+      tags: note.tags,
+      sentiment: note.sentiment,
+      next_step: note.nextStep,
+      next_step_date: note.nextStepDate,
+      related_contact_ids: note.relatedContactIds,
+      attendees: note.attendees
     })
     .eq('id', note.id);
 
   if (error) {
     console.error('Error updating note:', error);
     return false;
+  }
+
+  if (error) {
+    console.error('Error updating note:', error);
+    return false;
+  }
+
+  // Check and update hospital last_visit
+  // We need to fetch the hospitalId for this note first if it's not passed (it is passed in Note object)
+  const { data: hospital } = await supabase
+    .from('hospitals')
+    .select('last_visit')
+    .eq('id', note.hospitalId)
+    .single();
+
+  if (hospital) {
+    const noteDate = new Date(note.date);
+    const lastVisit = hospital.last_visit === 'Never' ? new Date(0) : new Date(hospital.last_visit);
+
+    if (noteDate > lastVisit) {
+      await supabase
+        .from('hospitals')
+        .update({ last_visit: note.date })
+        .eq('id', note.hospitalId);
+    }
   }
 
   return true;

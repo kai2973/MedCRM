@@ -122,6 +122,19 @@ const AppContent: React.FC = () => {
     const success = await updateNote(updatedNote);
     if (!success) {
       loadData(false);
+    } else {
+      // Check and update hospital lastVisit locally
+      const hospital = hospitals.find(h => h.id === updatedNote.hospitalId);
+      if (hospital) {
+        const noteDate = new Date(updatedNote.date);
+        const lastVisit = hospital.lastVisit === 'Never' ? new Date(0) : new Date(hospital.lastVisit);
+
+        if (noteDate > lastVisit) {
+          setHospitals(prev => prev.map(h =>
+            h.id === updatedNote.hospitalId ? { ...h, lastVisit: updatedNote.date } : h
+          ));
+        }
+      }
     }
   };
 
@@ -144,6 +157,19 @@ const AppContent: React.FC = () => {
     });
     if (created) {
       setNotes(prev => [created, ...prev]);
+
+      // Check and update hospital lastVisit locally
+      const hospital = hospitals.find(h => h.id === newNote.hospitalId);
+      if (hospital) {
+        const noteDate = new Date(newNote.date);
+        const lastVisit = hospital.lastVisit === 'Never' ? new Date(0) : new Date(hospital.lastVisit);
+
+        if (noteDate > lastVisit) {
+          setHospitals(prev => prev.map(h =>
+            h.id === newNote.hospitalId ? { ...h, lastVisit: newNote.date } : h
+          ));
+        }
+      }
     }
   };
 

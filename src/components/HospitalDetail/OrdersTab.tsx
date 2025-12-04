@@ -5,7 +5,7 @@ import {
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { UsageRecord, ProductType, UsageType, Hospital } from '../../types';
+import { UsageRecord, ProductType, UsageType, Hospital } from '@/types';
 import { PRODUCTS } from '../../constants';
 
 interface OrdersTabProps {

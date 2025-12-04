@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Activity, Plus, X, Package, Check, Edit, Trash2, Loader
 } from 'lucide-react';
-import { Hospital, Contact, UsageRecord, ProductType, SalesStage, InstalledEquipment } from '../../types';
+import { Hospital, Contact, UsageRecord, ProductType, SalesStage, InstalledEquipment } from '@/types';
 import { PRODUCTS } from '../../constants';
 
 interface OverviewTabProps {

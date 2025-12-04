@@ -213,6 +213,7 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
                     <NotesTab
                         hospital={hospital}
                         notes={notes}
+                        contacts={contacts}
                         onAddNote={onAddNote}
                         onUpdateNote={onUpdateNote}
                     />

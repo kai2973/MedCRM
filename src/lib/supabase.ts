@@ -59,10 +59,16 @@ export interface DBNote {
   hospital_id: string;
   content: string;
   activity_type: string;
-  author_id: string;
+  author_id: string; // 修正：有些專案可能是 author_id 或 author_name，請保留您原本有的
   author_name: string;
   created_at: string;
   updated_at: string;
+  tags: string[] | null;
+  sentiment: string | null;
+  next_step: string | null;
+  next_step_date: string | null;
+  related_contact_ids: string[] | null;
+  attendees: string | null;
 }
 
 export interface DBUsageRecord {

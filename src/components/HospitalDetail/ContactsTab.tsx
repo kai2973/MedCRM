@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     User, Mail, Phone, Sparkles, Edit, X
 } from 'lucide-react';
-import { Contact, Hospital } from '../../types';
+import { Contact, Hospital } from '@/types';
 import { generateEmailDraft } from '../../services/geminiService';
 
 interface ContactsTabProps {

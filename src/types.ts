@@ -49,6 +49,8 @@ export interface Contact {
 
 export type ActivityType = '通話' | '會議' | '拜訪' | '郵件' | '筆記' | '展示' | '教育訓練';
 
+export type Sentiment = 'positive' | 'neutral' | 'negative';
+
 export interface Note {
   id: string;
   hospitalId: string;
@@ -56,6 +58,12 @@ export interface Note {
   date: string;
   author: string;
   activityType: ActivityType;
+  tags?: string[];
+  sentiment?: Sentiment;
+  nextStep?: string;
+  nextStepDate?: string;
+  relatedContactIds?: string[];
+  attendees?: string; // Free text for non-contact participants
 }
 
 export type OwnershipType = '借用' | '買斷' | '租賃';
