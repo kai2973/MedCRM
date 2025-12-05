@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
     Activity, Plus, X, Package, Check, Edit, Trash2, Loader,
-    DollarSign, ShoppingBag
+    DollarSign, ShoppingBag, Calendar
 } from 'lucide-react';
-import { Hospital, Contact, UsageRecord, ProductType, SalesStage, InstalledEquipment } from '@/types';
+import { Hospital, Contact, UsageRecord, ProductType, SalesStage, InstalledEquipment, ConsumablePrice } from '@/types';
 import { PRODUCTS } from '../../constants';
 
 interface OverviewTabProps {
@@ -43,12 +43,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     const [isSavingChargeInfo, setIsSavingChargeInfo] = useState(false);
     const [chargeForm, setChargeForm] = useState({
         chargePerUse: hospital.chargePerUse?.toString() || '',
-        consumables: hospital.consumables || []
+        consumables: hospital.consumables || [] as ConsumablePrice[]
     });
 
     // 數字輸入的 helper function
     const handleNumericInput = (value: string): string => {
-        // 移除非數字字元，並移除開頭的 0
         return value.replace(/[^\d]/g, '').replace(/^0+/, '') || '';
     };
 
@@ -145,7 +144,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             await onUpdateHospital({
                 ...hospital,
                 chargePerUse: chargeForm.chargePerUse ? parseInt(chargeForm.chargePerUse) : undefined,
-                consumables: chargeForm.consumables
+                consumables: chargeForm.consumables.length > 0 ? chargeForm.consumables : undefined
             });
             setIsEditingChargeInfo(false);
         } catch (error) {
@@ -156,17 +155,44 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     };
 
     const toggleConsumable = (code: string) => {
+        setChargeForm(prev => {
+            const exists = prev.consumables.find(c => c.code === code);
+            if (exists) {
+                return {
+                    ...prev,
+                    consumables: prev.consumables.filter(c => c.code !== code)
+                };
+            } else {
+                return {
+                    ...prev,
+                    consumables: [...prev.consumables, { code, price: 0 }]
+                };
+            }
+        });
+    };
+
+    const updateConsumablePrice = (code: string, price: string) => {
         setChargeForm(prev => ({
             ...prev,
-            consumables: prev.consumables.includes(code)
-                ? prev.consumables.filter(c => c !== code)
-                : [...prev.consumables, code]
+            consumables: prev.consumables.map(c =>
+                c.code === code ? { ...c, price: parseInt(price) || 0 } : c
+            )
         }));
+    };
+
+    const isConsumableSelected = (code: string) => {
+        return chargeForm.consumables.some(c => c.code === code);
+    };
+
+    const getConsumablePrice = (code: string) => {
+        const item = chargeForm.consumables.find(c => c.code === code);
+        // 如果 price 是 0 或 undefined，回傳空字串讓使用者可以清空
+        return item?.price ? item.price.toString() : '';
     };
 
     return (
         <div className="space-y-6 animate-fade-in">
-            {/* Equipment Status - 改良版 */}
+            {/* Equipment Status */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 lg:p-8">
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -285,59 +311,113 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 )}
 
                 {hospital.installedEquipment.length > 0 ? (
-                    <div className="overflow-x-auto rounded-xl border border-slate-100">
-                        <table className="min-w-full divide-y divide-slate-100">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">產品</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">數量</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">安裝日期</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">所有權</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
-                                {hospital.installedEquipment.map(eq => {
-                                    const product = PRODUCTS.find(p => p.code === eq.productCode);
-                                    return (
-                                        <tr key={eq.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                                                <div className="flex items-center">
-                                                    <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">
-                                                        {eq.productCode.substring(0, 2)}
+                    <>
+                        {/* 桌面版表格 */}
+                        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
+                            <table className="min-w-full divide-y divide-slate-100">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">產品</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">數量</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">安裝日期</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">所有權</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                    {hospital.installedEquipment.map(eq => {
+                                        const product = PRODUCTS.find(p => p.code === eq.productCode);
+                                        return (
+                                            <tr key={eq.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                                                    <div className="flex items-center">
+                                                        <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">
+                                                            {eq.productCode.substring(0, 2)}
+                                                        </span>
+                                                        {product?.name || eq.productCode}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 font-medium">{eq.quantity}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(eq.installDate).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-500">
+                                                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${eq.ownership === '買斷' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                                                        {eq.ownership}
                                                     </span>
-                                                    {product?.name || eq.productCode}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 font-medium">{eq.quantity}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(eq.installDate).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-500">
-                                                <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${eq.ownership === '買斷' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
-                                                    {eq.ownership}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => setEditingEquipment(eq)}
+                                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Edit size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeleteConfirmId(eq.id)}
+                                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 手機版卡片 */}
+                        <div className="md:hidden space-y-3">
+                            {hospital.installedEquipment.map(eq => {
+                                const product = PRODUCTS.find(p => p.code === eq.productCode);
+                                return (
+                                    <div key={eq.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                                    {eq.productCode.substring(0, 2)}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => setEditingEquipment(eq)}
-                                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                    >
-                                                        <Edit size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteConfirmId(eq.id)}
-                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                <div>
+                                                    <p className="font-semibold text-slate-900">{product?.name || eq.productCode}</p>
+                                                    <p className="text-xs text-slate-500">{eq.productCode}</p>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </div>
+                                            <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${eq.ownership === '買斷' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                                                {eq.ownership}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between text-sm border-t border-slate-200 pt-3">
+                                            <div className="flex gap-4">
+                                                <span className="text-slate-500">
+                                                    數量: <span className="text-slate-900 font-medium">{eq.quantity}</span>
+                                                </span>
+                                                <span className="text-slate-500 flex items-center">
+                                                    <Calendar size={12} className="mr-1" />
+                                                    {new Date(eq.installDate).toLocaleDateString('zh-TW')}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => setEditingEquipment(eq)}
+                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteConfirmId(eq.id)}
+                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 ) : (
                     <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                         <Package size={32} className="mx-auto mb-3 text-slate-300" />
@@ -366,7 +446,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
 
                 {isEditingChargeInfo ? (
-                    /* 編輯模式 */
                     <div className="space-y-5 animate-fade-in">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
@@ -385,32 +464,52 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                                使用耗材（可多選）
+                                使用耗材（點擊選擇，並填入售價）
                             </label>
-                            <div className="flex flex-wrap gap-2">
-                                {consumableProducts.map(p => (
-                                    <button
-                                        key={p.code}
-                                        onClick={() => toggleConsumable(p.code)}
-                                        disabled={isSavingChargeInfo}
-                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                                            chargeForm.consumables.includes(p.code)
-                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50'
-                                        } disabled:opacity-50`}
-                                    >
-                                        {p.code}
-                                    </button>
-                                ))}
+                            <div className="space-y-2">
+                                {consumableProducts.map(p => {
+                                    const isSelected = isConsumableSelected(p.code);
+                                    return (
+                                        <div key={p.code} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                            isSelected
+                                                ? 'bg-emerald-50 border-emerald-200'
+                                                : 'bg-white border-slate-200 hover:border-slate-300'
+                                        }`}>
+                                            <button
+                                                onClick={() => toggleConsumable(p.code)}
+                                                disabled={isSavingChargeInfo}
+                                                className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                                                    isSelected
+                                                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                        : 'border-slate-300 hover:border-emerald-400'
+                                                } disabled:opacity-50`}
+                                            >
+                                                {isSelected && <Check size={14} />}
+                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                                    {p.code}
+                                                </span>
+                                                <span className="text-xs text-slate-500 ml-2">{p.name}</span>
+                                            </div>
+                                            {isSelected && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-slate-500">NT$</span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        className="w-24 p-2 rounded-lg border border-emerald-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white text-sm"
+                                                        value={getConsumablePrice(p.code)}
+                                                        onChange={(e) => updateConsumablePrice(p.code, handleNumericInput(e.target.value))}
+                                                        placeholder="售價"
+                                                        disabled={isSavingChargeInfo}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            {chargeForm.consumables.length > 0 && (
-                                <p className="text-xs text-slate-500 mt-2">
-                                    已選擇: {chargeForm.consumables.map(code => {
-                                        const product = consumableProducts.find(p => p.code === code);
-                                        return product ? product.name : code;
-                                    }).join('、')}
-                                </p>
-                            )}
                         </div>
 
                         <div className="flex justify-end gap-3 pt-2">
@@ -441,7 +540,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         </div>
                     </div>
                 ) : (
-                    /* 顯示模式 */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
                             <div className="flex items-center gap-3 mb-2">
@@ -462,20 +560,25 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                                     <ShoppingBag size={20} />
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">使用耗材</p>
                                     {hospital.consumables && hospital.consumables.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {hospital.consumables.map(code => {
-                                                const product = consumableProducts.find(p => p.code === code);
+                                        <div className="space-y-1.5">
+                                            {hospital.consumables.map(item => {
+                                                const product = consumableProducts.find(p => p.code === item.code);
                                                 return (
-                                                    <span
-                                                        key={code}
-                                                        className="px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700"
-                                                        title={product?.name}
+                                                    <div
+                                                        key={item.code}
+                                                        className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200"
                                                     >
-                                                        {code}
-                                                    </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-medium text-slate-700">{item.code}</span>
+                                                            <span className="text-xs text-slate-400">{product?.name}</span>
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-emerald-600">
+                                                            {item.price ? formatCurrency(item.price) : '-'}
+                                                        </span>
+                                                    </div>
                                                 );
                                             })}
                                         </div>
@@ -489,6 +592,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 )}
             </div>
 
+            {/* 快速摘要 */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-6 lg:p-8">
                 <h3 className="font-bold text-blue-900 mb-4 flex items-center">
                     <Activity size={18} className="mr-2" /> 快速摘要
@@ -514,149 +618,145 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {/* Edit Equipment Modal */}
-            {
-                editingEquipment && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
-                            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                <h3 className="font-bold text-lg text-slate-900 flex items-center">
-                                    <div className="bg-blue-100 p-1.5 rounded-lg mr-2 text-blue-600"><Package size={18} /></div>
-                                    編輯設備
-                                </h3>
-                                <button onClick={() => setEditingEquipment(null)} className="text-slate-400 hover:text-slate-600 transition-colors" disabled={isSavingEquipment}>
-                                    <X size={20} />
+            {editingEquipment && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
+                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="font-bold text-lg text-slate-900 flex items-center">
+                                <div className="bg-blue-100 p-1.5 rounded-lg mr-2 text-blue-600"><Package size={18} /></div>
+                                編輯設備
+                            </h3>
+                            <button onClick={() => setEditingEquipment(null)} className="text-slate-400 hover:text-slate-600 transition-colors" disabled={isSavingEquipment}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">設備型號</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                        value={editingEquipment.productCode}
+                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })}
+                                        disabled={isSavingEquipment}
+                                    >
+                                        {equipmentProducts.map(p => (
+                                            <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                                        ))}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">數量</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    value={editingEquipment.quantity}
+                                    onChange={(e) => setEditingEquipment({ ...editingEquipment, quantity: Number(e.target.value) })}
+                                    disabled={isSavingEquipment}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">安裝日期</label>
+                                <input
+                                    type="date"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    value={editingEquipment.installDate}
+                                    onChange={(e) => setEditingEquipment({ ...editingEquipment, installDate: e.target.value })}
+                                    disabled={isSavingEquipment}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">所有權</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                        value={editingEquipment.ownership}
+                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })}
+                                        disabled={isSavingEquipment}
+                                    >
+                                        <option value="租賃">租賃</option>
+                                        <option value="買斷">買斷</option>
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex space-x-3">
+                                <button
+                                    onClick={handleUpdateEquipmentSubmit}
+                                    disabled={isSavingEquipment}
+                                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {isSavingEquipment ? (
+                                        <>
+                                            <Loader size={18} className="mr-2 animate-spin" />
+                                            儲存中...
+                                        </>
+                                    ) : (
+                                        '儲存變更'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setEditingEquipment(null)}
+                                    disabled={isSavingEquipment}
+                                    className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50"
+                                >
+                                    取消
                                 </button>
                             </div>
-                            <div className="p-6 space-y-5">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">設備型號</label>
-                                    <div className="relative">
-                                        <select
-                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
-                                            value={editingEquipment.productCode}
-                                            onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })}
-                                            disabled={isSavingEquipment}
-                                        >
-                                            {equipmentProducts.map(p => (
-                                                <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-                                            ))}
-                                        </select>
-                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">數量</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                        value={editingEquipment.quantity}
-                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, quantity: Number(e.target.value) })}
-                                        disabled={isSavingEquipment}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">安裝日期</label>
-                                    <input
-                                        type="date"
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                        value={editingEquipment.installDate}
-                                        onChange={(e) => setEditingEquipment({ ...editingEquipment, installDate: e.target.value })}
-                                        disabled={isSavingEquipment}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">所有權</label>
-                                    <div className="relative">
-                                        <select
-                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
-                                            value={editingEquipment.ownership}
-                                            onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })}
-                                            disabled={isSavingEquipment}
-                                        >
-                                            <option value="租賃">租賃</option>
-                                            <option value="買斷">買斷</option>
-                                        </select>
-                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex space-x-3">
-                                    <button
-                                        onClick={handleUpdateEquipmentSubmit}
-                                        disabled={isSavingEquipment}
-                                        className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center"
-                                    >
-                                        {isSavingEquipment ? (
-                                            <>
-                                                <Loader size={18} className="mr-2 animate-spin" />
-                                                儲存中...
-                                            </>
-                                        ) : (
-                                            '儲存變更'
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => setEditingEquipment(null)}
-                                        disabled={isSavingEquipment}
-                                        className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50"
-                                    >
-                                        取消
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
-            {
-                deleteConfirmId && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in border border-slate-100">
-                            <div className="p-6 text-center">
-                                <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
-                                    <Trash2 size={24} />
-                                </div>
-                                <h3 className="font-bold text-lg text-slate-900 mb-2">確認刪除設備？</h3>
-                                <p className="text-slate-500 text-sm mb-6">此操作無法復原，設備記錄將永久刪除。</p>
-                                <div className="flex space-x-3">
-                                    <button
-                                        onClick={() => handleDeleteEquipment(deleteConfirmId)}
-                                        disabled={isDeleting}
-                                        className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-semibold hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center"
-                                    >
-                                        {isDeleting ? (
-                                            <>
-                                                <Loader size={18} className="mr-2 animate-spin" />
-                                                刪除中...
-                                            </>
-                                        ) : (
-                                            '確認刪除'
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => setDeleteConfirmId(null)}
-                                        disabled={isDeleting}
-                                        className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50"
-                                    >
-                                        取消
-                                    </button>
-                                </div>
+            {deleteConfirmId && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in border border-slate-100">
+                        <div className="p-6 text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                                <Trash2 size={24} />
+                            </div>
+                            <h3 className="font-bold text-lg text-slate-900 mb-2">確認刪除設備？</h3>
+                            <p className="text-slate-500 text-sm mb-6">此操作無法復原，設備記錄將永久刪除。</p>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => handleDeleteEquipment(deleteConfirmId)}
+                                    disabled={isDeleting}
+                                    className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-semibold hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {isDeleting ? (
+                                        <>
+                                            <Loader size={18} className="mr-2 animate-spin" />
+                                            刪除中...
+                                        </>
+                                    ) : (
+                                        '確認刪除'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    disabled={isDeleting}
+                                    className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50"
+                                >
+                                    取消
+                                </button>
                             </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div>
     );
 };

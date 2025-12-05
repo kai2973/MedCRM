@@ -84,6 +84,12 @@ export enum Region {
   EAST = '東區'
 }
 
+// 耗材價格資訊
+export interface ConsumablePrice {
+  code: string;   // 耗材代碼
+  price: number;  // 售價
+}
+
 export interface Hospital {
   id: string;
   name: string;
@@ -96,7 +102,7 @@ export interface Hospital {
   lastVisit: string;
   notes?: string; // 備註欄位
   chargePerUse?: number; // 每次收費價格
-  consumables?: string[]; // 使用耗材代碼列表 (例如: ['AA001', 'AA031'])
+  consumables?: ConsumablePrice[]; // 使用耗材及其價格
 }
 
 export interface AIResponse {

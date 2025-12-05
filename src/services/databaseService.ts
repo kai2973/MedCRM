@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Hospital, Contact, Note, UsageRecord, InstalledEquipment, SalesStage, HospitalLevel } from '../types';
+import { Hospital, Contact, Note, UsageRecord, InstalledEquipment, SalesStage, HospitalLevel, ConsumablePrice } from '../types';
 
 // ============== 醫院 CRUD ==============
 

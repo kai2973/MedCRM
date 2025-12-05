@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    ArrowLeft, MapPin, Edit, Brain, Sparkles
+    ArrowLeft, MapPin, Edit, Brain, Sparkles, X
 } from 'lucide-react';
 import { Hospital, Note, Contact, UsageRecord, SalesStage, InstalledEquipment } from '../../types';
 import { PRODUCTS } from '../../constants';
@@ -52,8 +52,10 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
     const [insight, setInsight] = useState<string>('');
     const [isLoadingInsight, setIsLoadingInsight] = useState(false);
     const [isEditingHospital, setIsEditingHospital] = useState(false);
+    const [showInsight, setShowInsight] = useState(false);
 
     const fetchInsight = async () => {
+        setShowInsight(true);
         setIsLoadingInsight(true);
         const result = await generateHospitalInsight(hospital, contacts, notes, usageHistory, PRODUCTS);
         setInsight(result);
@@ -110,54 +112,64 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
                 </div>
             </div>
 
-            <div className="p-6 lg:p-10 max-w-[1400px] mx-auto w-full space-y-8">
+            <div className="p-6 lg:p-10 max-w-[1400px] mx-auto w-full space-y-6">
 
-                {/* AI Insight Section */}
-                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-0.5 shadow-xl shadow-indigo-200">
-                    <div className="bg-white rounded-[14px] p-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-6 opacity-5">
-                            <Sparkles size={120} className="text-indigo-600" />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-2">
-                                    <Brain size={18} className="text-indigo-600" />
-                                    AI 客戶洞察
-                                </h3>
-                                {!insight && !isLoadingInsight && (
-                                    <button
-                                        onClick={fetchInsight}
-                                        className="flex items-center space-x-2 bg-indigo-50 text-indigo-700 border border-indigo-100 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
-                                    >
-                                        <Sparkles size={16} />
-                                        <span>生成洞察報告</span>
-                                    </button>
-                                )}
+                {/* AI Insight Section - 緊湊版 */}
+                {!showInsight ? (
+                    <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl p-[1px]">
+                        <div className="bg-white rounded-[11px] px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                    <Brain size={16} className="text-indigo-600" />
+                                </div>
+                                <div>
+                                    <span className="text-sm font-semibold text-slate-900">AI 客戶洞察</span>
+                                    <span className="text-xs text-slate-500 ml-2 hidden sm:inline">分析設備使用與建議下一步行動</span>
+                                </div>
                             </div>
-
-                            {isLoadingInsight && (
-                                <div className="animate-pulse flex space-x-4 py-2">
-                                    <div className="flex-1 space-y-3">
-                                        <div className="h-2.5 bg-indigo-50 rounded w-3/4"></div>
-                                        <div className="h-2.5 bg-indigo-50 rounded w-1/2"></div>
-                                        <div className="h-2.5 bg-indigo-50 rounded w-5/6"></div>
+                            <button
+                                onClick={fetchInsight}
+                                className="flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                            >
+                                <Sparkles size={14} />
+                                <span>生成報告</span>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl p-[1px]">
+                        <div className="bg-white rounded-[11px] p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Brain size={16} className="text-indigo-600" />
+                                    <span className="text-sm font-semibold text-indigo-700">AI 客戶洞察</span>
+                                </div>
+                                <button
+                                    onClick={() => { setShowInsight(false); setInsight(''); }}
+                                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            
+                            {isLoadingInsight ? (
+                                <div className="animate-pulse flex space-x-4 py-1">
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-2 bg-indigo-50 rounded w-3/4"></div>
+                                        <div className="h-2 bg-indigo-50 rounded w-1/2"></div>
+                                        <div className="h-2 bg-indigo-50 rounded w-5/6"></div>
                                     </div>
                                 </div>
-                            )}
-
-                            {insight && !isLoadingInsight && (
-                                <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50">
-                                    <p className="text-slate-800 text-sm leading-relaxed animate-fade-in whitespace-pre-line font-medium">
+                            ) : (
+                                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
                                         {insight}
                                     </p>
                                 </div>
                             )}
-                            {!insight && !isLoadingInsight && (
-                                <p className="text-slate-500 text-sm italic">使用 AI 分析設備使用情況、聯絡人情緒以及建議的下一步行動。</p>
-                            )}
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Modern Tabs */}
                 <div className="border-b border-slate-200">
