@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Wand2, Send, Edit, FileText, X,
@@ -36,7 +35,8 @@ const NotesTab: React.FC<NotesTabProps> = ({
     const [attendees, setAttendees] = useState(''); // Free text for non-contact participants
 
     const [isRefining, setIsRefining] = useState(false);
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false); // 控制表單是否展開
+    const [isExpanded, setIsExpanded] = useState(false); // 控制進階選項是否展開
 
     // 預設標籤，包含固定選項 + 產品代碼
     const PREDEFINED_TAGS = ['價格異議', '競品比較', '需要報價', '售後服務', '新產品介紹', ...PRODUCTS.map(p => p.code)];
@@ -52,6 +52,7 @@ const NotesTab: React.FC<NotesTabProps> = ({
         setNextStepDate('');
         setSelectedContactIds([]);
         setAttendees('');
+        setIsFormOpen(false);
         setIsExpanded(false);
     };
 
@@ -66,6 +67,7 @@ const NotesTab: React.FC<NotesTabProps> = ({
         setNextStepDate(note.nextStepDate || '');
         setSelectedContactIds(note.relatedContactIds || []);
         setAttendees(note.attendees || '');
+        setIsFormOpen(true);
         setIsExpanded(true);
 
         // Scroll to top to see the form
@@ -133,192 +135,215 @@ const NotesTab: React.FC<NotesTabProps> = ({
 
     return (
         <div className="space-y-6 animate-fade-in">
-            {/* 編輯/新增區塊 */}
-            <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 transition-all ${isExpanded || editingId ? 'ring-2 ring-blue-100' : ''}`}>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-slate-900 flex items-center">
-                        {editingId ? (
-                            <>
-                                <Edit size={18} className="mr-2 text-amber-600" />
-                                編輯紀錄
-                            </>
-                        ) : (
-                            <>
-                                <Plus size={18} className="mr-2 text-blue-600" />
-                                新增拜訪紀錄
-                            </>
-                        )}
-                    </h3>
+            {/* 收合狀態：只顯示按鈕 */}
+            {!isFormOpen && !editingId && (
+                <button
+                    onClick={() => setIsFormOpen(true)}
+                    className="w-full py-4 px-6 bg-white border-2 border-dashed border-slate-300 rounded-2xl text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 font-medium"
+                >
+                    <Plus size={20} />
+                    新增拜訪紀錄
+                </button>
+            )}
 
-                    {/* Sentiment Selector */}
-                    <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
-                        {(['positive', 'neutral', 'negative'] as Sentiment[]).map(s => (
-                            <button
-                                key={s}
-                                onClick={() => setSentiment(s)}
-                                className={`p-1.5 rounded-md transition-all ${sentiment === s ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-slate-200/50'}`}
-                                title={s === 'positive' ? '正向' : s === 'negative' ? '負向' : '中立'}
-                            >
-                                {renderSentimentIcon(s)}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            {/* 展開狀態：完整表單 */}
+            {(isFormOpen || editingId) && (
+                <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 transition-all ring-2 ring-blue-100 animate-fade-in`}>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-slate-900 flex items-center">
+                            {editingId ? (
+                                <>
+                                    <Edit size={18} className="mr-2 text-amber-600" />
+                                    編輯紀錄
+                                </>
+                            ) : (
+                                <>
+                                    <Plus size={18} className="mr-2 text-blue-600" />
+                                    新增拜訪紀錄
+                                </>
+                            )}
+                        </h3>
 
-                <div className="space-y-4">
-                    {/* Activity Type & Contacts */}
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <select
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto min-w-[120px]"
-                                value={activityType}
-                                onChange={(e) => setActivityType(e.target.value as ActivityType)}
-                            >
-                                <option value="拜訪">拜訪</option>
-                                <option value="電話">電話</option>
-                                <option value="Email">Email</option>
-                                <option value="會議">會議</option>
-                                <option value="展示">展示</option>
-                                <option value="教育訓練">教育訓練</option>
-                            </select>
-
-                            {/* 聯絡人選擇器 (Chips) */}
-                            <div className="flex-1 overflow-x-auto pb-1 flex gap-2 items-center no-scrollbar">
-                                <span className="text-xs text-slate-400 font-medium shrink-0 flex items-center">
-                                    <UserIcon size={12} className="mr-1" /> 對象:
-                                </span>
-                                {contacts.length > 0 ? contacts.map(c => (
+                        <div className="flex items-center gap-3">
+                            {/* Sentiment Selector */}
+                            <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
+                                {(['positive', 'neutral', 'negative'] as Sentiment[]).map(s => (
                                     <button
-                                        key={c.id}
-                                        onClick={() => toggleContact(c.id)}
-                                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${selectedContactIds.includes(c.id)
-                                            ? 'bg-blue-50 border-blue-200 text-blue-700 font-semibold'
-                                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-200'
-                                            }`}
+                                        key={s}
+                                        onClick={() => setSentiment(s)}
+                                        className={`p-1.5 rounded-md transition-all ${sentiment === s ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-slate-200/50'}`}
+                                        title={s === 'positive' ? '正向' : s === 'negative' ? '負向' : '中立'}
                                     >
-                                        {c.name}
+                                        {renderSentimentIcon(s)}
                                     </button>
-                                )) : (
-                                    <span className="text-xs text-slate-400 italic">無聯絡人資料</span>
-                                )}
+                                ))}
                             </div>
-                        </div>
 
-                        {/* 其他參與者 (Free Text) */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 font-medium shrink-0">其他參與者:</span>
-                            <input
-                                type="text"
-                                placeholder="輸入其他參與者姓名 (非聯絡人)"
-                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                value={attendees}
-                                onChange={(e) => setAttendees(e.target.value)}
-                            />
+                            {/* 關閉按鈕 */}
+                            <button
+                                onClick={resetForm}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="關閉"
+                            >
+                                <X size={18} />
+                            </button>
                         </div>
                     </div>
 
-                    {/* Content Area */}
-                    <div className="relative">
-                        <textarea
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none min-h-[120px] transition-all"
-                            placeholder="輸入詳細的拜訪內容、客戶反饋..."
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            onFocus={() => setIsExpanded(true)}
-                        />
-                        <button
-                            onClick={handleRefineNote}
-                            disabled={isRefining || !content}
-                            className="absolute bottom-4 right-4 p-2 bg-white text-purple-600 rounded-lg shadow-sm border border-purple-100 hover:bg-purple-50 transition-all disabled:opacity-50"
-                            title="AI 潤飾內容"
-                        >
-                            <Wand2 size={16} className={isRefining ? "animate-spin" : ""} />
-                        </button>
-                    </div>
+                    <div className="space-y-4">
+                        {/* Activity Type & Contacts */}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <select
+                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto min-w-[120px]"
+                                    value={activityType}
+                                    onChange={(e) => setActivityType(e.target.value as ActivityType)}
+                                >
+                                    <option value="拜訪">拜訪</option>
+                                    <option value="電話">電話</option>
+                                    <option value="Email">Email</option>
+                                    <option value="會議">會議</option>
+                                    <option value="展示">展示</option>
+                                    <option value="教育訓練">教育訓練</option>
+                                </select>
 
-                    {/* Expanded Options */}
-                    {(isExpanded || editingId) && (
-                        <div className="space-y-4 pt-2 animate-fade-in border-t border-slate-100 mt-4">
-                            {/* Tags */}
-                            <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Tag size={14} className="text-slate-400" />
-                                    <span className="text-xs font-bold text-slate-500 uppercase">標籤</span>
-                                </div>
-                                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar">
-                                    {PREDEFINED_TAGS.map(tag => (
+                                {/* 聯絡人選擇器 (Chips) */}
+                                <div className="flex-1 overflow-x-auto pb-1 flex gap-2 items-center no-scrollbar">
+                                    <span className="text-xs text-slate-400 font-medium shrink-0 flex items-center">
+                                        <UserIcon size={12} className="mr-1" /> 對象:
+                                    </span>
+                                    {contacts.length > 0 ? contacts.map(c => (
                                         <button
-                                            key={tag}
-                                            onClick={() => toggleTag(tag)}
-                                            className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${selectedTags.includes(tag)
-                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                            key={c.id}
+                                            onClick={() => toggleContact(c.id)}
+                                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${selectedContactIds.includes(c.id)
+                                                ? 'bg-blue-50 border-blue-200 text-blue-700 font-semibold'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-200'
                                                 }`}
                                         >
-                                            {tag}
+                                            {c.name}
                                         </button>
-                                    ))}
+                                    )) : (
+                                        <span className="text-xs text-slate-400 italic">無聯絡人資料</span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Next Step */}
-                            <div className="flex flex-col md:flex-row gap-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">下一步行動</label>
-                                    <input
-                                        type="text"
-                                        placeholder="例如：寄送報價單"
-                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                                        value={nextStep}
-                                        onChange={(e) => setNextStep(e.target.value)}
-                                    />
-                                </div>
-                                <div className="w-full md:w-48">
-                                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">截止日期</label>
-                                    <input
-                                        type="date"
-                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                                        value={nextStepDate}
-                                        onChange={(e) => setNextStepDate(e.target.value)}
-                                    />
-                                </div>
+                            {/* 其他參與者 (Free Text) */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-400 font-medium shrink-0">其他參與者:</span>
+                                <input
+                                    type="text"
+                                    placeholder="輸入其他參與者姓名 (非聯絡人)"
+                                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={attendees}
+                                    onChange={(e) => setAttendees(e.target.value)}
+                                />
                             </div>
                         </div>
-                    )}
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end pt-2 gap-3">
+                        {/* Content Area */}
+                        <div className="relative">
+                            <textarea
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none min-h-[120px] transition-all"
+                                placeholder="輸入詳細的拜訪內容、客戶反饋..."
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                onFocus={() => setIsExpanded(true)}
+                                autoFocus
+                            />
+                            <button
+                                onClick={handleRefineNote}
+                                disabled={isRefining || !content}
+                                className="absolute bottom-4 right-4 p-2 bg-white text-purple-600 rounded-lg shadow-sm border border-purple-100 hover:bg-purple-50 transition-all disabled:opacity-50"
+                                title="AI 潤飾內容"
+                            >
+                                <Wand2 size={16} className={isRefining ? "animate-spin" : ""} />
+                            </button>
+                        </div>
+
+                        {/* Expanded Options */}
                         {(isExpanded || editingId) && (
+                            <div className="space-y-4 pt-2 animate-fade-in border-t border-slate-100 mt-4">
+                                {/* Tags */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Tag size={14} className="text-slate-400" />
+                                        <span className="text-xs font-bold text-slate-500 uppercase">標籤</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar">
+                                        {PREDEFINED_TAGS.map(tag => (
+                                            <button
+                                                key={tag}
+                                                onClick={() => toggleTag(tag)}
+                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${selectedTags.includes(tag)
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                    }`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Next Step */}
+                                <div className="flex flex-col md:flex-row gap-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">下一步行動</label>
+                                        <input
+                                            type="text"
+                                            placeholder="例如：寄送報價單"
+                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                            value={nextStep}
+                                            onChange={(e) => setNextStep(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-48">
+                                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">截止日期</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                            value={nextStepDate}
+                                            onChange={(e) => setNextStepDate(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end pt-2 gap-3">
                             <button
                                 onClick={resetForm}
                                 className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
                             >
-                                {editingId ? '取消編輯' : '收起'}
+                                取消
                             </button>
-                        )}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={!content.trim()}
-                            className={`px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center transition-all active:scale-[0.98] disabled:opacity-50 ${editingId
-                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                                }`}
-                        >
-                            {editingId ? (
-                                <>
-                                    <Save size={16} className="mr-2" />
-                                    更新紀錄
-                                </>
-                            ) : (
-                                <>
-                                    <Send size={16} className="mr-2" />
-                                    發布紀錄
-                                </>
-                            )}
-                        </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!content.trim()}
+                                className={`px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center transition-all active:scale-[0.98] disabled:opacity-50 ${editingId
+                                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                                    }`}
+                            >
+                                {editingId ? (
+                                    <>
+                                        <Save size={16} className="mr-2" />
+                                        更新紀錄
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={16} className="mr-2" />
+                                        發布紀錄
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* 紀錄列表 */}
             <div className="space-y-4">

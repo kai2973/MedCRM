@@ -30,6 +30,8 @@ export const fetchHospitals = async (): Promise<Hospital[]> => {
     equipmentInstalled: h.equipment_installed,
     lastVisit: h.last_visit || 'Never',
     notes: h.notes || '',
+    chargePerUse: h.charge_per_use || undefined,
+    consumables: h.consumables || [],
     installedEquipment: (equipmentData || [])
       .filter(e => e.hospital_id === h.id)
       .map(e => ({
@@ -77,6 +79,8 @@ export const createHospital = async (
     equipmentInstalled: data.equipment_installed,
     lastVisit: data.last_visit || 'Never',
     notes: data.notes || '',
+    chargePerUse: data.charge_per_use || undefined,
+    consumables: data.consumables || [],
     installedEquipment: []
   };
 };
@@ -92,7 +96,9 @@ export const updateHospital = async (hospital: Hospital): Promise<boolean> => {
       level: hospital.level,
       equipment_installed: hospital.equipmentInstalled,
       last_visit: hospital.lastVisit,
-      notes: hospital.notes || null
+      notes: hospital.notes || null,
+      charge_per_use: hospital.chargePerUse || null,
+      consumables: hospital.consumables || null
     })
     .eq('id', hospital.id);
 

@@ -24,6 +24,12 @@ const SelectArrow = () => (
     </div>
 );
 
+// 數字輸入的 helper function
+const handleNumericInput = (value: string): string => {
+    // 移除非數字字元，並移除開頭的 0
+    return value.replace(/[^\d]/g, '').replace(/^0+/, '') || '';
+};
+
 const OrdersTab: React.FC<OrdersTabProps> = ({
     hospital,
     usageHistory,
@@ -36,16 +42,19 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
     const [orderForm, setOrderForm] = useState({
         productCode: 'AA031',
         date: new Date().toISOString().split('T')[0],
-        quantity: 10,
+        quantity: '10',
         type: '訂單' as UsageType
     });
 
     const handleSaveOrder = () => {
+        const quantity = parseInt(orderForm.quantity) || 0;
+        if (quantity <= 0) return;
+        
         const newOrder: UsageRecord = {
             id: `u-${Date.now()}`,
             hospitalId: hospital.id,
             productCode: orderForm.productCode,
-            quantity: Number(orderForm.quantity),
+            quantity: quantity,
             date: orderForm.date,
             type: orderForm.type
         };
@@ -54,7 +63,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
         setOrderForm({
             productCode: 'AA031',
             date: new Date().toISOString().split('T')[0],
-            quantity: 10,
+            quantity: '10',
             type: '訂單'
         });
     };
@@ -128,11 +137,12 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">數量</label>
                             <input
-                                type="number"
-                                min="1"
+                                type="text"
+                                inputMode="numeric"
                                 className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
                                 value={orderForm.quantity}
-                                onChange={(e) => setOrderForm({ ...orderForm, quantity: Number(e.target.value) })}
+                                onChange={(e) => setOrderForm({ ...orderForm, quantity: handleNumericInput(e.target.value) })}
+                                placeholder="輸入數量"
                             />
                         </div>
                         <div>
@@ -153,7 +163,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                     <div className="flex justify-end pt-2">
                         <button
                             onClick={handleSaveOrder}
-                            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 flex items-center transition-all active:scale-[0.98]"
+                            disabled={!orderForm.quantity || parseInt(orderForm.quantity) <= 0}
+                            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 flex items-center transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Check size={18} className="mr-2" />
                             儲存記錄
@@ -338,11 +349,15 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">數量</label>
                                 <input
-                                    type="number"
-                                    min="1"
+                                    type="text"
+                                    inputMode="numeric"
                                     className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                                     value={editingOrder.quantity}
-                                    onChange={(e) => setEditingOrder({ ...editingOrder, quantity: Number(e.target.value) })}
+                                    onChange={(e) => {
+                                        const value = handleNumericInput(e.target.value);
+                                        setEditingOrder({ ...editingOrder, quantity: value ? parseInt(value) : 0 });
+                                    }}
+                                    placeholder="輸入數量"
                                 />
                             </div>
                             <div>
@@ -363,7 +378,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                             <div className="pt-4 flex space-x-3">
                                 <button
                                     onClick={handleUpdateOrderSubmit}
-                                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20"
+                                    disabled={!editingOrder.quantity || editingOrder.quantity <= 0}
+                                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     儲存變更
                                 </button>

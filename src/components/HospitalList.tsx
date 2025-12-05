@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, ChevronRight, Plus, X, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Building, MoreHorizontal } from 'lucide-react';
+import { Search, Filter, ChevronRight, Plus, X, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Building, DollarSign } from 'lucide-react';
 import { Hospital, SalesStage, HospitalLevel, Region } from '../types';
 
 interface HospitalListProps {
@@ -9,7 +9,7 @@ interface HospitalListProps {
   onAddHospital: (data: Pick<Hospital, 'name' | 'region' | 'address' | 'stage' | 'level'>) => void;
 }
 
-type SortKey = 'name' | 'region' | 'stage' | 'level';
+type SortKey = 'name' | 'region' | 'stage' | 'level' | 'chargePerUse';
 type SortDirection = 'asc' | 'desc';
 
 const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital, onAddHospital }) => {
@@ -43,6 +43,17 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     } catch {
       return lastVisit;
     }
+  };
+
+  // 格式化金額
+  const formatCurrency = (amount: number | undefined): string => {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('zh-TW', {
+      style: 'currency',
+      currency: 'TWD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
   // Derive unique regions for filter dropdown
@@ -108,6 +119,10 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
           const bRegion = regionOrder[b.region] || 99;
           comparison = aRegion - bRegion;
         }
+      } else if (sortConfig.key === 'chargePerUse') {
+        const aVal = a.chargePerUse || 0;
+        const bVal = b.chargePerUse || 0;
+        comparison = aVal - bVal;
       } else {
         // 名稱使用中文筆畫排序
         comparison = a.name.localeCompare(b.name, 'zh-TW-u-co-stroke');
@@ -258,6 +273,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
             { key: 'name', label: '名稱' },
             { key: 'region', label: '區域' },
             { key: 'level', label: '等級' },
+            { key: 'chargePerUse', label: '收費' },
             { key: 'stage', label: '狀態' }
           ] as { key: SortKey; label: string }[]).map((item) => (
             <button
@@ -330,10 +346,13 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('level')}>
                   <div className="flex items-center">等級 {getSortIcon('level')}</div>
                 </th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('chargePerUse')}>
+                  <div className="flex items-center">收費金額 {getSortIcon('chargePerUse')}</div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">設備安裝</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('stage')}>
                   <div className="flex items-center">狀態 {getSortIcon('stage')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">設備安裝</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">上次拜訪</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider"></th>
               </tr>
@@ -360,11 +379,18 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
                   <td className="px-6 py-5 text-sm text-slate-600">
                     <span className="bg-slate-50 text-slate-700 px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200">{hospital.level}</span>
                   </td>
-                  <td className="px-6 py-5">
-                    {getStageBadge(hospital.stage)}
+                  <td className="px-6 py-5 text-sm text-slate-600 font-medium">
+                    {hospital.chargePerUse ? (
+                      <span className="text-amber-600 font-semibold">{formatCurrency(hospital.chargePerUse)}</span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
                   </td>
                   <td className="px-6 py-5">
                     {getEquipmentSummary(hospital)}
+                  </td>
+                  <td className="px-6 py-5">
+                    {getStageBadge(hospital.stage)}
                   </td>
                   <td className="px-6 py-5 text-sm text-slate-500 font-medium">{formatLastVisit(hospital.lastVisit)}</td>
                   <td className="px-6 py-5 text-slate-400 text-right">
@@ -407,6 +433,12 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500 flex items-center"><Building size={14} className="mr-1.5" /> 等級</span>
                 <span className="text-slate-900 font-medium">{hospital.level}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 flex items-center"><DollarSign size={14} className="mr-1.5" /> 收費</span>
+                <span className={hospital.chargePerUse ? "text-amber-600 font-semibold" : "text-slate-400"}>
+                  {hospital.chargePerUse ? formatCurrency(hospital.chargePerUse) : '-'}
+                </span>
               </div>
               <div className="flex justify-between text-sm items-start">
                 <span className="text-slate-500 mt-0.5">設備</span>

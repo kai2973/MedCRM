@@ -95,6 +95,8 @@ export interface Hospital {
   installedEquipment: InstalledEquipment[];
   lastVisit: string;
   notes?: string; // 備註欄位
+  chargePerUse?: number; // 每次收費價格
+  consumables?: string[]; // 使用耗材代碼列表 (例如: ['AA001', 'AA031'])
 }
 
 export interface AIResponse {

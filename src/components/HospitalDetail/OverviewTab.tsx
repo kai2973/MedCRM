@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-    Activity, Plus, X, Package, Check, Edit, Trash2, Loader
+    Activity, Plus, X, Package, Check, Edit, Trash2, Loader,
+    DollarSign, ShoppingBag
 } from 'lucide-react';
 import { Hospital, Contact, UsageRecord, ProductType, SalesStage, InstalledEquipment } from '@/types';
 import { PRODUCTS } from '../../constants';
@@ -12,6 +13,7 @@ interface OverviewTabProps {
     onAddEquipment: (equipment: InstalledEquipment) => Promise<void> | void;
     onUpdateEquipment: (equipment: InstalledEquipment) => Promise<void> | void;
     onDeleteEquipment: (equipmentId: string) => Promise<void> | void;
+    onUpdateHospital?: (hospital: Hospital) => Promise<void> | void;
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -20,7 +22,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     usageHistory,
     onAddEquipment,
     onUpdateEquipment,
-    onDeleteEquipment
+    onDeleteEquipment,
+    onUpdateHospital
 }) => {
     // Equipment State
     const [isAddingEquipment, setIsAddingEquipment] = useState(false);
@@ -35,8 +38,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // 收費與耗材 State
+    const [isEditingChargeInfo, setIsEditingChargeInfo] = useState(false);
+    const [isSavingChargeInfo, setIsSavingChargeInfo] = useState(false);
+    const [chargeForm, setChargeForm] = useState({
+        chargePerUse: hospital.chargePerUse?.toString() || '',
+        consumables: hospital.consumables || []
+    });
+
+    // 數字輸入的 helper function
+    const handleNumericInput = (value: string): string => {
+        // 移除非數字字元，並移除開頭的 0
+        return value.replace(/[^\d]/g, '').replace(/^0+/, '') || '';
+    };
+
     // 設備產品列表（主機類）
     const equipmentProducts = PRODUCTS.filter(p => p.type === ProductType.EQUIPMENT);
+    // 耗材產品列表
+    const consumableProducts = PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE);
 
     // 格式化日期的 helper function
     const formatLastVisit = (lastVisit: string): string => {
@@ -46,6 +65,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         } catch {
             return lastVisit;
         }
+    };
+
+    // 格式化金額
+    const formatCurrency = (amount: number): string => {
+        return new Intl.NumberFormat('zh-TW', {
+            style: 'currency',
+            currency: 'TWD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
     };
 
     // Equipment handlers
@@ -98,6 +127,41 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    // 收費與耗材 handlers
+    const handleEditChargeInfo = () => {
+        setChargeForm({
+            chargePerUse: hospital.chargePerUse?.toString() || '',
+            consumables: hospital.consumables || []
+        });
+        setIsEditingChargeInfo(true);
+    };
+
+    const handleSaveChargeInfo = async () => {
+        if (!onUpdateHospital) return;
+        setIsSavingChargeInfo(true);
+        try {
+            await onUpdateHospital({
+                ...hospital,
+                chargePerUse: chargeForm.chargePerUse ? parseInt(chargeForm.chargePerUse) : undefined,
+                consumables: chargeForm.consumables
+            });
+            setIsEditingChargeInfo(false);
+        } catch (error) {
+            console.error('Error saving charge info:', error);
+        } finally {
+            setIsSavingChargeInfo(false);
+        }
+    };
+
+    const toggleConsumable = (code: string) => {
+        setChargeForm(prev => ({
+            ...prev,
+            consumables: prev.consumables.includes(code)
+                ? prev.consumables.filter(c => c !== code)
+                : [...prev.consumables, code]
+        }));
     };
 
     return (
@@ -279,6 +343,148 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <Package size={32} className="mx-auto mb-3 text-slate-300" />
                         <p className="text-slate-500 font-medium">尚未安裝設備</p>
                         <p className="text-slate-400 text-sm mt-1">點擊「新增設備」開始記錄</p>
+                    </div>
+                )}
+            </div>
+
+            {/* 收費與耗材區塊 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">收費與耗材</h2>
+                        <p className="text-sm text-slate-500 mt-1">此醫院的收費標準與使用耗材</p>
+                    </div>
+                    {!isEditingChargeInfo && onUpdateHospital && (
+                        <button
+                            onClick={handleEditChargeInfo}
+                            className="flex items-center space-x-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-xl transition-all"
+                        >
+                            <Edit size={16} />
+                            <span className="font-medium text-sm">編輯</span>
+                        </button>
+                    )}
+                </div>
+
+                {isEditingChargeInfo ? (
+                    /* 編輯模式 */
+                    <div className="space-y-5 animate-fade-in">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                                每次收費價格 (NT$)
+                            </label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                className="w-full md:w-64 p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm shadow-sm"
+                                value={chargeForm.chargePerUse}
+                                onChange={(e) => setChargeForm({ ...chargeForm, chargePerUse: handleNumericInput(e.target.value) })}
+                                placeholder="例如: 1500"
+                                disabled={isSavingChargeInfo}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                                使用耗材（可多選）
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {consumableProducts.map(p => (
+                                    <button
+                                        key={p.code}
+                                        onClick={() => toggleConsumable(p.code)}
+                                        disabled={isSavingChargeInfo}
+                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                                            chargeForm.consumables.includes(p.code)
+                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50'
+                                        } disabled:opacity-50`}
+                                    >
+                                        {p.code}
+                                    </button>
+                                ))}
+                            </div>
+                            {chargeForm.consumables.length > 0 && (
+                                <p className="text-xs text-slate-500 mt-2">
+                                    已選擇: {chargeForm.consumables.map(code => {
+                                        const product = consumableProducts.find(p => p.code === code);
+                                        return product ? product.name : code;
+                                    }).join('、')}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setIsEditingChargeInfo(false)}
+                                disabled={isSavingChargeInfo}
+                                className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleSaveChargeInfo}
+                                disabled={isSavingChargeInfo}
+                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 flex items-center transition-all active:scale-[0.98] disabled:opacity-50"
+                            >
+                                {isSavingChargeInfo ? (
+                                    <>
+                                        <Loader size={18} className="mr-2 animate-spin" />
+                                        儲存中...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check size={18} className="mr-2" />
+                                        儲存
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    /* 顯示模式 */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                                    <DollarSign size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">每次收費</p>
+                                    <p className="font-bold text-slate-900 text-lg">
+                                        {hospital.chargePerUse ? formatCurrency(hospital.chargePerUse) : '尚未設定'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <ShoppingBag size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">使用耗材</p>
+                                    {hospital.consumables && hospital.consumables.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {hospital.consumables.map(code => {
+                                                const product = consumableProducts.find(p => p.code === code);
+                                                return (
+                                                    <span
+                                                        key={code}
+                                                        className="px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700"
+                                                        title={product?.name}
+                                                    >
+                                                        {code}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-400 text-sm">尚未設定</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

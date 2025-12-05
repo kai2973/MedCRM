@@ -188,6 +188,7 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
                         onAddEquipment={onAddEquipment}
                         onUpdateEquipment={onUpdateEquipment}
                         onDeleteEquipment={onDeleteEquipment}
+                        onUpdateHospital={onUpdateHospital}
                     />
                 )}
 
