@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, ChevronRight, Plus, X, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Building, DollarSign } from 'lucide-react';
 import { Hospital, SalesStage, HospitalLevel, Region } from '../types';
 
@@ -12,6 +11,8 @@ interface HospitalListProps {
 type SortKey = 'name' | 'region' | 'stage' | 'level' | 'chargePerUse';
 type SortDirection = 'asc' | 'desc';
 
+const SORT_STORAGE_KEY = 'medcrm_hospital_sort';
+
 const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital, onAddHospital }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,8 +24,31 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     region: 'All'
   });
 
-  // Sorting State
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
+  // Sorting State - 從 sessionStorage 讀取，若無則為 null（使用預設排序）
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem(SORT_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error reading sort config from sessionStorage:', e);
+    }
+    return null;
+  });
+
+  // 當 sortConfig 改變時，儲存到 sessionStorage
+  useEffect(() => {
+    try {
+      if (sortConfig) {
+        sessionStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sortConfig));
+      } else {
+        sessionStorage.removeItem(SORT_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error('Error saving sort config to sessionStorage:', e);
+    }
+  }, [sortConfig]);
 
   // Create new hospital state
   const [newHospital, setNewHospital] = useState({
@@ -34,6 +58,22 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     level: HospitalLevel.LOCAL,
     stage: SalesStage.LEAD
   });
+
+  // 排序順序定義
+  const regionOrder: Record<string, number> = { '北區': 1, '中區': 2, '南區': 3, '東區': 4 };
+  const levelOrder: Record<string, number> = {
+    [HospitalLevel.MEDICAL_CENTER]: 1,
+    [HospitalLevel.REGIONAL]: 2,
+    [HospitalLevel.LOCAL]: 3
+  };
+  const stageOrder: Record<string, number> = {
+    [SalesStage.LEAD]: 1,
+    [SalesStage.QUALIFICATION]: 2,
+    [SalesStage.TRIAL]: 3,
+    [SalesStage.NEGOTIATION]: 4,
+    [SalesStage.CLOSED_WON]: 5,
+    [SalesStage.CLOSED_LOST]: 6
+  };
 
   // 格式化日期的 helper function
   const formatLastVisit = (lastVisit: string): string => {
@@ -56,11 +96,34 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     }).format(amount);
   };
 
+  // 取得中文字筆畫數（用於排序）
+  const getStrokeOrder = (name: string): number => {
+    // 使用 localeCompare 的 stroke 排序來比較
+    // 這裡回傳一個用於排序的數值
+    return name.charCodeAt(0);
+  };
+
   // Derive unique regions for filter dropdown
   const uniqueRegions = useMemo(() => {
     const regions = new Set(hospitals.map(h => h.region));
     return ['All', ...Array.from(regions).sort()];
   }, [hospitals]);
+
+  // 預設排序函數：區域 → 等級 → 名稱（筆畫多到少）
+  const defaultSort = (a: Hospital, b: Hospital): number => {
+    // 1. 區域排序（北→中→南→東）
+    const regionA = regionOrder[a.region] || 99;
+    const regionB = regionOrder[b.region] || 99;
+    if (regionA !== regionB) return regionA - regionB;
+
+    // 2. 等級排序（醫學中心→區域醫院→地區醫院）
+    const levelA = levelOrder[a.level] || 99;
+    const levelB = levelOrder[b.level] || 99;
+    if (levelA !== levelB) return levelA - levelB;
+
+    // 3. 名稱排序（筆畫多到少，即 desc）
+    return b.name.localeCompare(a.name, 'zh-TW-u-co-stroke');
+  };
 
   const sortedHospitals = useMemo(() => {
     // 1. Filter
@@ -74,24 +137,12 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       return matchesSearch && matchesStage && matchesRegion;
     });
 
-    // 2. Sort
-    if (!sortConfig) return filtered;
+    // 2. Sort - 如果沒有自訂排序，使用預設排序
+    if (!sortConfig) {
+      return [...filtered].sort(defaultSort);
+    }
 
-    const regionOrder: Record<string, number> = { '北區': 1, '中區': 2, '南區': 3, '東區': 4 };
-    const levelOrder: Record<string, number> = {
-      [HospitalLevel.MEDICAL_CENTER]: 1,
-      [HospitalLevel.REGIONAL]: 2,
-      [HospitalLevel.LOCAL]: 3
-    };
-    const stageOrder: Record<string, number> = {
-      [SalesStage.LEAD]: 1,
-      [SalesStage.QUALIFICATION]: 2,
-      [SalesStage.TRIAL]: 3,
-      [SalesStage.NEGOTIATION]: 4,
-      [SalesStage.CLOSED_WON]: 5,
-      [SalesStage.CLOSED_LOST]: 6
-    };
-
+    // 自訂排序
     return [...filtered].sort((a, b) => {
       let comparison = 0;
 
@@ -174,7 +225,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
   const resetFilters = () => {
     setActiveFilters({ stage: 'All', region: 'All' });
     setSearchTerm('');
-    setSortConfig(null);
+    setSortConfig(null); // 重置為預設排序
   };
 
   const getStageBadge = (stage: SalesStage) => {

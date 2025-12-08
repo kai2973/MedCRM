@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import HospitalList from './components/HospitalList';
 import HospitalDetail from './components/HospitalDetail';
 import Settings from './components/Settings';
+import Calendar from './components/Calendar';
 import { Loader } from 'lucide-react';
 import { Hospital, Note, Contact, UsageRecord, SalesStage, InstalledEquipment } from './types';
 import {
@@ -24,7 +25,9 @@ import {
   updateUsageRecord,
   createInstalledEquipment,
   updateInstalledEquipment,
-  deleteInstalledEquipment
+  deleteInstalledEquipment,
+  fetchAllProfiles,
+  ProfileSummary
 } from './services/databaseService';
 
 // 醫院詳情頁面包裝元件
@@ -122,14 +125,15 @@ const HospitalListWrapper: React.FC<{
 };
 
 const AppContent: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isManagerOrAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   // 從 URL 取得當前 tab
   const getActiveTabFromPath = (pathname: string): string => {
     if (pathname.startsWith('/hospitals')) return 'hospitals';
-    if (pathname === '/settings') return 'settings';
+    if (pathname.startsWith('/calendar')) return 'calendar';
+    if (pathname.startsWith('/settings')) return 'settings';
     return 'dashboard';
   };
 
@@ -140,6 +144,7 @@ const AppContent: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [usageRecords, setUsageRecords] = useState<UsageRecord[]>([]);
+  const [allProfiles, setAllProfiles] = useState<ProfileSummary[]>([]);
 
   // 載入狀態 - 只有首次載入才顯示
   const [initialLoading, setInitialLoading] = useState(true);
@@ -177,10 +182,27 @@ const AppContent: React.FC = () => {
     }
   }, [user]);
 
+  // 載入所有 profiles（僅 manager/admin）
+  const loadProfiles = useCallback(async () => {
+    if (!user || !isManagerOrAdmin) return;
+    
+    try {
+      const profiles = await fetchAllProfiles();
+      setAllProfiles(profiles);
+    } catch (error) {
+      console.error('Error loading profiles:', error);
+    }
+  }, [user, isManagerOrAdmin]);
+
   // 首次載入
   useEffect(() => {
     loadData(true);
   }, [loadData]);
+
+  // 載入 profiles
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
   // 視窗重新獲得焦點時，背景更新資料（不顯示 loading）
   useEffect(() => {
@@ -399,6 +421,9 @@ const AppContent: React.FC = () => {
       case 'hospitals':
         navigate('/hospitals');
         break;
+      case 'calendar':
+        navigate('/calendar');
+        break;
       case 'settings':
         navigate('/settings');
         break;
@@ -441,7 +466,18 @@ const AppContent: React.FC = () => {
             />
           }
         />
+        <Route 
+          path="/calendar" 
+          element={
+            <Calendar 
+              notes={notes} 
+              hospitals={hospitals} 
+              allProfiles={allProfiles}
+            />
+          } 
+        />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/:section" element={<Settings />} />
       </Routes>
     </Layout>
   );

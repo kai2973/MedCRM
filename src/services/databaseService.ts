@@ -200,7 +200,12 @@ export const updateContact = async (contact: Contact): Promise<boolean> => {
 
 // ============== 筆記/活動記錄 CRUD ==============
 
-export const fetchNotes = async (): Promise<Note[]> => {
+// 擴展 Note 類型加入 userId
+export interface NoteWithUserId extends Note {
+  userId?: string;
+}
+
+export const fetchNotes = async (): Promise<NoteWithUserId[]> => {
   const { data, error } = await supabase
     .from('notes')
     .select('*')
@@ -223,14 +228,22 @@ export const fetchNotes = async (): Promise<Note[]> => {
     nextStep: n.next_step,
     nextStepDate: n.next_step_date,
     relatedContactIds: n.related_contact_ids || [],
-    attendees: n.attendees || undefined
+    attendees: n.attendees || undefined,
+    userId: n.user_id || undefined
   }));
 };
 
-export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> => {
-  const { data, error } = await supabase
+export const createNote = async (note: Omit<Note, 'id'>): Promise<NoteWithUserId | null> => {
+  // 取得當前使用者 ID
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // 先生成一個 ID
+  const noteId = crypto.randomUUID();
+  
+  const { error } = await supabase
     .from('notes')
     .insert({
+      id: noteId,
       hospital_id: note.hospitalId,
       content: note.content,
       activity_type: note.activityType,
@@ -240,15 +253,31 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
       next_step: note.nextStep || null,
       next_step_date: note.nextStepDate || null,
       related_contact_ids: note.relatedContactIds || null,
-      attendees: note.attendees || null
-    })
-    .select()
-    .single();
+      attendees: note.attendees || null,
+      user_id: user?.id || null
+    });
 
   if (error) {
     console.error('Error creating note:', error);
     return null;
   }
+
+  // 不用 RETURNING，直接用我們知道的資料構建返回物件
+  const newNote: NoteWithUserId = {
+    id: noteId,
+    hospitalId: note.hospitalId,
+    content: note.content,
+    date: new Date().toISOString(),
+    author: note.author,
+    activityType: note.activityType,
+    tags: note.tags || [],
+    sentiment: note.sentiment as any,
+    nextStep: note.nextStep || undefined,
+    nextStepDate: note.nextStepDate || undefined,
+    relatedContactIds: note.relatedContactIds || [],
+    attendees: note.attendees || undefined,
+    userId: user?.id || undefined
+  };
 
   // Check and update hospital last_visit
   const { data: hospital } = await supabase
@@ -269,20 +298,7 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<Note | null> =
     }
   }
 
-  return {
-    id: data.id,
-    hospitalId: data.hospital_id,
-    content: data.content,
-    date: data.created_at,
-    author: data.author_name,
-    activityType: data.activity_type,
-    tags: data.tags || [],
-    sentiment: data.sentiment as any,
-    nextStep: data.next_step || undefined,
-    nextStepDate: data.next_step_date || undefined,
-    relatedContactIds: data.related_contact_ids || [],
-    attendees: data.attendees || undefined
-  };
+  return newNote;
 };
 
 export const updateNote = async (note: Note): Promise<boolean> => {
@@ -460,4 +476,32 @@ export const deleteInstalledEquipment = async (equipmentId: string): Promise<boo
   }
 
   return true;
+};
+
+// ============== Profiles (用於行事曆篩選) ==============
+
+export interface ProfileSummary {
+  id: string;
+  full_name: string;
+  email: string;
+  role_type: string;
+}
+
+export const fetchAllProfiles = async (): Promise<ProfileSummary[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role_type')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching profiles:', error);
+    return [];
+  }
+
+  return data.map(p => ({
+    id: p.id,
+    full_name: p.full_name || '',
+    email: p.email || '',
+    role_type: p.role_type || 'sales'
+  }));
 };

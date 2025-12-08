@@ -1,12 +1,22 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { User, Bell, Shield, Database, Save, Check, Loader, Pencil, X, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+type SettingsSection = 'profile' | 'notifications' | 'security' | 'data';
+
 const Settings: React.FC = () => {
+  const { section } = useParams<{ section?: string }>();
+  const navigate = useNavigate();
   const { user, profile: authProfile, updateProfile } = useAuth();
-  const [activeSection, setActiveSection] = useState('profile');
+  
+  // 從 URL 取得 section，預設為 profile
+  const validSections: SettingsSection[] = ['profile', 'notifications', 'security', 'data'];
+  const activeSection: SettingsSection = validSections.includes(section as SettingsSection) 
+    ? (section as SettingsSection) 
+    : 'profile';
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -46,12 +56,18 @@ const Settings: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  // 通知設定狀態
   const [notifications, setNotifications] = useState({
-    emailAlerts: true,
     weeklyDigest: false,
-    newLeads: true,
-    dealUpdates: true
+    monthlyDigest: false
   });
+  const [notificationsSaving, setNotificationsSaving] = useState(false);
+  const [notificationsSaveSuccess, setNotificationsSaveSuccess] = useState(false);
+
+  // 切換 section 時更新 URL
+  const setActiveSection = (newSection: SettingsSection) => {
+    navigate(`/settings/${newSection}`, { replace: true });
+  };
 
   // 載入 profile 資料
   const loadProfile = useCallback(async (showLoading = true) => {
@@ -81,6 +97,12 @@ const Settings: React.FC = () => {
           region: data.region || '北區',
           bio: data.bio || '',
           avatar_url: data.avatar_url || ''
+        });
+        
+        // 載入通知設定
+        setNotifications({
+          weeklyDigest: data.weekly_digest ?? false,
+          monthlyDigest: data.monthly_digest ?? false
         });
       } else {
         // 如果沒有 profile，使用 user email
@@ -248,6 +270,38 @@ const Settings: React.FC = () => {
       alert('儲存失敗，請稍後再試');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // 儲存通知設定
+  const handleSaveNotifications = async () => {
+    if (!user) return;
+
+    setNotificationsSaving(true);
+    setNotificationsSaveSuccess(false);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          weekly_digest: notifications.weeklyDigest,
+          monthly_digest: notifications.monthlyDigest,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error saving notifications:', error);
+        alert('儲存失敗，請稍後再試');
+      } else {
+        setNotificationsSaveSuccess(true);
+        setTimeout(() => setNotificationsSaveSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('儲存失敗，請稍後再試');
+    } finally {
+      setNotificationsSaving(false);
     }
   };
 
@@ -578,41 +632,71 @@ const Settings: React.FC = () => {
                          <div className="space-y-6 animate-fade-in">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">通知設定</h2>
-                                <p className="text-sm text-slate-500 mt-1">選擇您希望接收通知的方式。</p>
+                                <p className="text-sm text-slate-500 mt-1">選擇您希望接收的摘要報告。</p>
                             </div>
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-blue-100 transition-colors">
                                     <div>
-                                        <p className="font-semibold text-slate-900">郵件提醒</p>
-                                        <p className="text-sm text-slate-500">接收緊急項目的郵件通知。</p>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={notifications.emailAlerts} onChange={() => setNotifications({...notifications, emailAlerts: !notifications.emailAlerts})} className="sr-only peer" />
-                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                    </label>
-                                </div>
-                                <div className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-blue-100 transition-colors">
-                                    <div>
                                         <p className="font-semibold text-slate-900">每週摘要</p>
-                                        <p className="text-sm text-slate-500">每週銷售績效的摘要報告。</p>
+                                        <p className="text-sm text-slate-500">每週一寄送上週的銷售績效摘要報告到您的信箱。</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={notifications.weeklyDigest} onChange={() => setNotifications({...notifications, weeklyDigest: !notifications.weeklyDigest})} className="sr-only peer" />
+                                        <input 
+                                            type="checkbox" 
+                                            checked={notifications.weeklyDigest} 
+                                            onChange={() => setNotifications({...notifications, weeklyDigest: !notifications.weeklyDigest})} 
+                                            className="sr-only peer" 
+                                        />
                                         <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                     </label>
                                 </div>
                                 <div className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-blue-100 transition-colors">
                                     <div>
-                                        <p className="font-semibold text-slate-900">新潛在客戶</p>
-                                        <p className="text-sm text-slate-500">當有新客戶指派給您時通知。</p>
+                                        <p className="font-semibold text-slate-900">每月摘要</p>
+                                        <p className="text-sm text-slate-500">每月 1 號寄送上月的完整銷售報告到您的信箱。</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={notifications.newLeads} onChange={() => setNotifications({...notifications, newLeads: !notifications.newLeads})} className="sr-only peer" />
+                                        <input 
+                                            type="checkbox" 
+                                            checked={notifications.monthlyDigest} 
+                                            onChange={() => setNotifications({...notifications, monthlyDigest: !notifications.monthlyDigest})} 
+                                            className="sr-only peer" 
+                                        />
                                         <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                     </label>
                                 </div>
                             </div>
-                            <p className="text-sm text-slate-400 italic">* 通知功能即將推出</p>
+                            
+                            {/* 儲存按鈕 */}
+                            <div className="pt-4 flex items-center justify-between">
+                                <div>
+                                    {notificationsSaveSuccess && (
+                                        <div className="flex items-center text-sm text-green-600 font-medium animate-fade-in">
+                                            <Check size={16} className="mr-1.5" />
+                                            設定已儲存
+                                        </div>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={handleSaveNotifications}
+                                    disabled={notificationsSaving}
+                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center disabled:opacity-50"
+                                >
+                                    {notificationsSaving ? (
+                                        <>
+                                            <Loader size={18} className="animate-spin mr-2" />
+                                            儲存中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={18} className="mr-2" />
+                                            儲存設定
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            
+                            <p className="text-sm text-slate-400 italic">* 郵件發送功能即將推出，設定會先儲存以便日後啟用。</p>
                         </div>
                     )}
 

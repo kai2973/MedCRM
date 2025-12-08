@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Building2, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X, Loader, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -12,15 +12,30 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const { profile, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
     { id: 'hospitals', label: '醫院列表', icon: Building2 },
+    { id: 'calendar', label: '行事曆', icon: Calendar },
   ];
 
   const handleNavClick = (id: string) => {
     setActiveTab(id);
     setIsMobileMenuOpen(false); 
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      // 清除 sessionStorage（包含排序設定等）
+      sessionStorage.clear();
+      await signOut();
+      // signOut 會清除 user state，App.tsx 會自動顯示 Login 頁面
+    } catch (error) {
+      console.error('登出失敗:', error);
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -147,11 +162,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
            {(!isCollapsed || isMobileMenuOpen) && (
              <div className="mt-3 pt-3 border-t border-slate-800/50">
                 <button 
-                  onClick={() => signOut()}
-                  className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50 transition-colors text-sm"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <LogOut size={16} />
-                    <span>登出</span>
+                    {isLoggingOut ? (
+                      <Loader size={16} className="animate-spin" />
+                    ) : (
+                      <LogOut size={16} />
+                    )}
+                    <span>{isLoggingOut ? '登出中...' : '登出'}</span>
                 </button>
              </div>
            )}
