@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Wand2, Send, Edit, FileText, X,
     Smile, Meh, Frown, Tag, User as UserIcon, ArrowRightCircle,
-    Calendar, Save, Trash2, Plus
+    Calendar, Save, Plus, UserPlus, Check
 } from 'lucide-react';
 import { Note, ActivityType, Hospital, Contact, Sentiment } from '@/types';
 import { refineNoteContent } from '../../services/geminiService';
@@ -14,6 +14,71 @@ interface NotesTabProps {
     contacts: Contact[];
     onAddNote: (note: Note) => void;
     onUpdateNote: (note: Note) => void;
+    onAddContact: (contact: Contact) => void;
+}
+
+// 職稱關鍵字對照表
+const TITLE_KEYWORDS: Record<string, string> = {
+    '主任': '主任',
+    '副主任': '副主任',
+    '阿長': '護理長',
+    '護理長': '護理長',
+    '副護理長': '副護理長',
+    '副護': '副護理長',
+    '醫師': '醫師',
+    '醫生': '醫師',
+    '護理師': '護理師',
+    '護士': '護理師',
+    '專師': '專科護理師',
+    '醫工': '醫工',
+    '採購': '採購',
+    '經辦': '經辦',
+    '組長': '組長',
+    '院長': '院長',
+    '副院長': '副院長',
+    '督導': '督導',
+    '技術員': '技術員',
+    '呼吸治療師': '呼吸治療師',
+    'RT': '呼吸治療師',
+    '藥師': '藥師',
+    '總務': '總務',
+    '秘書': '秘書',
+};
+
+// 從姓名中解析職稱
+const parseNameAndTitle = (input: string): { name: string; title: string } => {
+    const trimmed = input.trim();
+    
+    // 按照關鍵字長度排序（長的優先匹配，避免「副護理長」被「護理長」先匹配到）
+    const sortedKeywords = Object.keys(TITLE_KEYWORDS).sort((a, b) => b.length - a.length);
+    
+    for (const keyword of sortedKeywords) {
+        if (trimmed.includes(keyword)) {
+            return {
+                name: trimmed,
+                title: TITLE_KEYWORDS[keyword]
+            };
+        }
+    }
+    
+    return { name: trimmed, title: '' };
+};
+
+// 分隔多個參與者名字
+const splitAttendees = (input: string): string[] => {
+    if (!input.trim()) return [];
+    // 支援逗號、頓號、空格、斜線作為分隔符
+    return input
+        .split(/[,、\s\/]+/)
+        .map(n => n.trim())
+        .filter(n => n.length > 0);
+};
+
+// 待新增聯絡人的介面
+interface PendingContact {
+    name: string;
+    title: string;
+    selected: boolean;
 }
 
 const NotesTab: React.FC<NotesTabProps> = ({
@@ -21,31 +86,37 @@ const NotesTab: React.FC<NotesTabProps> = ({
     notes,
     contacts,
     onAddNote,
-    onUpdateNote
+    onUpdateNote,
+    onAddContact
 }) => {
     // Form State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [content, setContent] = useState('');
     const [activityType, setActivityType] = useState<ActivityType>('拜訪');
+    const [activityDate, setActivityDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [sentiment, setSentiment] = useState<Sentiment>('neutral');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [nextStep, setNextStep] = useState('');
     const [nextStepDate, setNextStepDate] = useState('');
     const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
-    const [attendees, setAttendees] = useState(''); // Free text for non-contact participants
+    const [attendees, setAttendees] = useState('');
 
     const [isRefining, setIsRefining] = useState(false);
-    const [isFormOpen, setIsFormOpen] = useState(false); // 控制表單是否展開
-    const [isExpanded, setIsExpanded] = useState(false); // 控制進階選項是否展開
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
-    // 預設標籤，包含固定選項 + 產品代碼
+    // 新增聯絡人確認彈窗狀態
+    const [showAddContactModal, setShowAddContactModal] = useState(false);
+    const [pendingContacts, setPendingContacts] = useState<PendingContact[]>([]);
+    const [pendingNoteData, setPendingNoteData] = useState<any>(null);
+
     const PREDEFINED_TAGS = ['價格異議', '競品比較', '需要報價', '售後服務', '新產品介紹', ...PRODUCTS.map(p => p.code)];
 
-    // Reset form to default state
     const resetForm = () => {
         setEditingId(null);
         setContent('');
         setActivityType('拜訪');
+        setActivityDate(new Date().toISOString().split('T')[0]);
         setSentiment('neutral');
         setSelectedTags([]);
         setNextStep('');
@@ -56,11 +127,11 @@ const NotesTab: React.FC<NotesTabProps> = ({
         setIsExpanded(false);
     };
 
-    // Populate form for editing
     const handleEditClick = (note: Note) => {
         setEditingId(note.id);
         setContent(note.content);
         setActivityType(note.activityType);
+        setActivityDate(note.date);
         setSentiment(note.sentiment || 'neutral');
         setSelectedTags(note.tags || []);
         setNextStep(note.nextStep || '');
@@ -69,8 +140,6 @@ const NotesTab: React.FC<NotesTabProps> = ({
         setAttendees(note.attendees || '');
         setIsFormOpen(true);
         setIsExpanded(true);
-
-        // Scroll to top to see the form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -99,14 +168,38 @@ const NotesTab: React.FC<NotesTabProps> = ({
         );
     };
 
+    // 檢查是否有新的參與者需要加入聯絡人
+    const findNewAttendees = (): PendingContact[] => {
+        if (!attendees.trim()) return [];
+        
+        const attendeeNames = splitAttendees(attendees);
+        const existingNames = contacts.map(c => c.name.toLowerCase());
+        
+        const newAttendees: PendingContact[] = [];
+        
+        for (const name of attendeeNames) {
+            // 檢查是否已經是聯絡人（忽略大小寫）
+            if (!existingNames.includes(name.toLowerCase())) {
+                const { name: parsedName, title } = parseNameAndTitle(name);
+                newAttendees.push({
+                    name: parsedName,
+                    title,
+                    selected: true
+                });
+            }
+        }
+        
+        return newAttendees;
+    };
+
     const handleSubmit = () => {
         if (!content.trim()) return;
 
         const noteData: any = {
             hospitalId: hospital.id,
-            date: editingId ? notes.find(n => n.id === editingId)?.date : new Date().toISOString().split('T')[0], // Keep original date if editing
+            date: activityDate,
             content: content,
-            author: editingId ? notes.find(n => n.id === editingId)?.author : '我', // Keep original author if editing
+            author: editingId ? notes.find(n => n.id === editingId)?.author : '我',
             activityType: activityType,
             sentiment,
             tags: selectedTags,
@@ -116,13 +209,71 @@ const NotesTab: React.FC<NotesTabProps> = ({
             attendees: attendees || undefined
         };
 
+        // 檢查是否有新參與者
+        const newAttendees = findNewAttendees();
+        
+        if (newAttendees.length > 0 && !editingId) {
+            // 有新參與者，顯示確認彈窗
+            setPendingContacts(newAttendees);
+            setPendingNoteData(noteData);
+            setShowAddContactModal(true);
+        } else {
+            // 沒有新參與者，直接儲存
+            saveNote(noteData);
+        }
+    };
+
+    const saveNote = (noteData: any) => {
         if (editingId) {
             onUpdateNote({ ...noteData, id: editingId });
         } else {
             onAddNote({ ...noteData, id: `n-${Date.now()}` });
         }
-
         resetForm();
+    };
+
+    const handleConfirmAddContacts = () => {
+        // 新增選中的聯絡人
+        const selectedPending = pendingContacts.filter(p => p.selected);
+        
+        for (const pending of selectedPending) {
+            const newContact: Contact = {
+                id: `c-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                hospitalId: hospital.id,
+                name: pending.name,
+                role: pending.title,
+                email: '',
+                phone: '',
+                isKeyDecisionMaker: false
+            };
+            onAddContact(newContact);
+        }
+
+        // 儲存筆記
+        if (pendingNoteData) {
+            saveNote(pendingNoteData);
+        }
+
+        // 關閉彈窗並重置
+        setShowAddContactModal(false);
+        setPendingContacts([]);
+        setPendingNoteData(null);
+    };
+
+    const handleSkipAddContacts = () => {
+        // 不新增聯絡人，直接儲存筆記
+        if (pendingNoteData) {
+            saveNote(pendingNoteData);
+        }
+        setShowAddContactModal(false);
+        setPendingContacts([]);
+        setPendingNoteData(null);
+    };
+
+    const togglePendingContact = (index: number) => {
+        setPendingContacts(prev => prev.map((p, i) => 
+            i === index ? { ...p, selected: !p.selected } : p
+        ));
     };
 
     const renderSentimentIcon = (s: Sentiment | undefined, size = 18) => {
@@ -135,6 +286,79 @@ const NotesTab: React.FC<NotesTabProps> = ({
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* 新增聯絡人確認彈窗 */}
+            {showAddContactModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <UserPlus size={20} className="text-blue-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">新增聯絡人</h3>
+                                <p className="text-sm text-slate-500">是否將以下人員加入聯絡人？</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 mb-6">
+                            {pendingContacts.map((pending, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => togglePendingContact(index)}
+                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                                        pending.selected 
+                                            ? 'bg-blue-50 border-blue-200' 
+                                            : 'bg-slate-50 border-slate-200'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                            pending.selected 
+                                                ? 'bg-blue-600 text-white' 
+                                                : 'bg-slate-300 text-slate-600'
+                                        }`}>
+                                            {pending.selected ? <Check size={16} /> : pending.name.charAt(0)}
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="font-medium text-slate-900">{pending.name}</div>
+                                            {pending.title && (
+                                                <div className="text-xs text-slate-500">職稱：{pending.title}</div>
+                                            )}
+                                            {!pending.title && (
+                                                <div className="text-xs text-slate-400">（未偵測到職稱）</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                        pending.selected 
+                                            ? 'bg-blue-600 border-blue-600' 
+                                            : 'border-slate-300'
+                                    }`}>
+                                        {pending.selected && <Check size={12} className="text-white" />}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSkipAddContacts}
+                                className="flex-1 px-4 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors"
+                            >
+                                跳過
+                            </button>
+                            <button
+                                onClick={handleConfirmAddContacts}
+                                disabled={!pendingContacts.some(p => p.selected)}
+                                className="flex-1 px-4 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                確認新增
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 收合狀態：只顯示按鈕 */}
             {!isFormOpen && !editingId && (
                 <button
@@ -191,11 +415,13 @@ const NotesTab: React.FC<NotesTabProps> = ({
                     </div>
 
                     <div className="space-y-4">
-                        {/* Activity Type & Contacts */}
+                        {/* Activity Type, Date & Contacts */}
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col md:flex-row gap-4">
+                                {/* 活動類型 */}
                                 <select
-                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto min-w-[120px]"
+                                    className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto min-w-[120px] appearance-none bg-no-repeat bg-[length:16px_16px] bg-[center_right_12px]"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
                                     value={activityType}
                                     onChange={(e) => setActivityType(e.target.value as ActivityType)}
                                 >
@@ -206,6 +432,18 @@ const NotesTab: React.FC<NotesTabProps> = ({
                                     <option value="展示">展示</option>
                                     <option value="教育訓練">教育訓練</option>
                                 </select>
+
+                                {/* 活動日期 */}
+                                <div className="flex items-center gap-2">
+                                    <Calendar size={16} className="text-slate-400 shrink-0" />
+                                    <input
+                                        type="date"
+                                        className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto"
+                                        value={activityDate}
+                                        onChange={(e) => setActivityDate(e.target.value)}
+                                        max={new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
 
                                 {/* 聯絡人選擇器 (Chips) */}
                                 <div className="flex-1 overflow-x-auto pb-1 flex gap-2 items-center no-scrollbar">
@@ -234,7 +472,7 @@ const NotesTab: React.FC<NotesTabProps> = ({
                                 <span className="text-xs text-slate-400 font-medium shrink-0">其他參與者:</span>
                                 <input
                                     type="text"
-                                    placeholder="輸入其他參與者姓名 (非聯絡人)"
+                                    placeholder="輸入姓名，多人可用逗號、頓號或空格分隔"
                                     className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                     value={attendees}
                                     onChange={(e) => setAttendees(e.target.value)}
@@ -396,7 +634,6 @@ const NotesTab: React.FC<NotesTabProps> = ({
                                 <div className="flex items-center gap-2 mb-3">
                                     <UserIcon size={12} className="text-slate-400" />
                                     <div className="flex gap-2 flex-wrap">
-                                        {/* Contacts */}
                                         {note.relatedContactIds?.map(cid => {
                                             const contact = contacts.find(c => c.id === cid);
                                             return contact ? (
@@ -405,7 +642,6 @@ const NotesTab: React.FC<NotesTabProps> = ({
                                                 </span>
                                             ) : null;
                                         })}
-                                        {/* Free Text Attendees */}
                                         {note.attendees && (
                                             <span className="text-xs text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
                                                 {note.attendees}

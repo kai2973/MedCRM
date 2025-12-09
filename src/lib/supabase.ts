@@ -12,9 +12,109 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    // 設定較短的 storage key 避免衝突
+    storageKey: 'medcrm-auth',
   }
 });
+
+// 確保 session 有效的 helper function
+export const ensureValidSession = async (): Promise<boolean> => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Session error:', error);
+      return false;
+    }
+    
+    if (!session) {
+      console.warn('No active session');
+      return false;
+    }
+    
+    // 檢查 token 是否即將過期（5 分鐘內）
+    const expiresAt = session.expires_at;
+    if (expiresAt) {
+      const now = Math.floor(Date.now() / 1000);
+      const timeUntilExpiry = expiresAt - now;
+      
+      // 如果 token 將在 5 分鐘內過期，嘗試刷新
+      if (timeUntilExpiry < 300) {
+        console.log('Token expiring soon, refreshing...');
+        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('Failed to refresh session:', refreshError);
+          return false;
+        }
+        
+        console.log('Session refreshed successfully');
+        return !!data.session;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking session:', error);
+    return false;
+  }
+};
+
+// 帶有自動重試的 API 請求包裝器
+export const withRetry = async <T>(
+  operation: () => Promise<{ data: T | null; error: any }>,
+  maxRetries: number = 2
+): Promise<{ data: T | null; error: any }> => {
+  let lastError: any = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // 確保 session 有效
+      const isValid = await ensureValidSession();
+      
+      if (!isValid && attempt === maxRetries) {
+        // 最後一次嘗試仍然無效，返回錯誤
+        return { 
+          data: null, 
+          error: { message: 'Session expired. Please refresh the page and log in again.' } 
+        };
+      }
+      
+      const result = await operation();
+      
+      // 檢查是否是認證錯誤
+      if (result.error) {
+        const errorMessage = result.error.message?.toLowerCase() || '';
+        const isAuthError = 
+          errorMessage.includes('jwt') ||
+          errorMessage.includes('token') ||
+          errorMessage.includes('unauthorized') ||
+          errorMessage.includes('auth') ||
+          result.error.code === 'PGRST301';
+        
+        if (isAuthError && attempt < maxRetries) {
+          console.log(`Auth error on attempt ${attempt + 1}, retrying...`);
+          // 嘗試刷新 session
+          await supabase.auth.refreshSession();
+          continue;
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error(`Operation failed on attempt ${attempt + 1}:`, error);
+      
+      if (attempt < maxRetries) {
+        // 等待一小段時間再重試
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  }
+  
+  return { data: null, error: lastError };
+};
 
 // Database Types
 export interface Profile {
@@ -61,7 +161,7 @@ export interface DBNote {
   hospital_id: string;
   content: string;
   activity_type: string;
-  author_id: string; // 修正：有些專案可能是 author_id 或 author_name，請保留您原本有的
+  author_id: string;
   author_name: string;
   created_at: string;
   updated_at: string;

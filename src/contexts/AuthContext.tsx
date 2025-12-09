@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile } from '../lib/supabase';
+import { supabase, Profile, ensureValidSession } from '../lib/supabase';
 
 // 擴展 Profile 類型
 export interface ExtendedProfile extends Profile {
@@ -16,6 +16,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  refreshSession: () => Promise<boolean>;
   isManagerOrAdmin: boolean;
 }
 
@@ -28,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   // 載入使用者 profile
-  const loadProfile = async (userId: string) => {
+  const loadProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -42,7 +43,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error loading profile:', error);
       setProfile(null);
     }
-  };
+  }, []);
+
+  // 手動刷新 session
+  const refreshSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Failed to refresh session:', error);
+        return false;
+      }
+      
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      return false;
+    }
+  }, []);
 
   // 初始化:檢查目前 session
   useEffect(() => {
@@ -65,7 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
 
     // 監聽認證狀態變化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -75,13 +101,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
       }
       
+      // 處理特定事件
+      switch (event) {
+        case 'TOKEN_REFRESHED':
+          console.log('Token was refreshed successfully');
+          break;
+        case 'SIGNED_OUT':
+          console.log('User signed out');
+          // 清除 sessionStorage 中的排序設定
+          sessionStorage.removeItem('hospitalSortConfig');
+          break;
+        case 'USER_UPDATED':
+          console.log('User was updated');
+          break;
+      }
+      
       setLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
+
+  // 定期檢查並刷新 session（每 4 分鐘）
+  useEffect(() => {
+    if (!session) return;
+
+    const checkAndRefreshSession = async () => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        console.warn('Session invalid during periodic check, attempting refresh...');
+        await refreshSession();
+      }
+    };
+
+    // 每 4 分鐘檢查一次
+    const intervalId = setInterval(checkAndRefreshSession, 4 * 60 * 1000);
+
+    // 當頁面從背景恢復時也檢查
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, checking session...');
+        checkAndRefreshSession();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 當網路恢復時檢查
+    const handleOnline = () => {
+      console.log('Network restored, checking session...');
+      checkAndRefreshSession();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [session, refreshSession]);
 
   // 登入
   const signIn = async (email: string, password: string) => {
@@ -99,7 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 註冊 (管理員建立新使用者)
   const signUp = async (email: string, password: string, fullName: string, role: string = '業務') => {
     try {
-      // 使用 Supabase Admin API 建立使用者
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -111,10 +191,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) return { error };
-
-      // Profile 會由資料庫 trigger 自動建立
-      // 但我們需要更新 role
-      // 注意:這需要管理員權限,實際上應該透過後端 API 處理
       
       return { error: null };
     } catch (error) {
@@ -124,6 +200,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 登出
   const signOut = async () => {
+    // 清除 sessionStorage 中的排序設定
+    sessionStorage.removeItem('hospitalSortConfig');
+    
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
@@ -135,6 +214,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     try {
+      // 確保 session 有效
+      await ensureValidSession();
+      
       const { error } = await supabase
         .from('profiles')
         .update(updates)
@@ -162,6 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     updateProfile,
+    refreshSession,
     isManagerOrAdmin,
   };
 
