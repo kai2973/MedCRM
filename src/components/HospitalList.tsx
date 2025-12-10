@@ -24,7 +24,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     region: 'All'
   });
 
-  // Sorting State - 從 sessionStorage 讀取，若無則為 null（使用預設排序）
+  // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(() => {
     try {
       const saved = sessionStorage.getItem(SORT_STORAGE_KEY);
@@ -37,7 +37,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     return null;
   });
 
-  // 當 sortConfig 改變時，儲存到 sessionStorage
   useEffect(() => {
     try {
       if (sortConfig) {
@@ -50,7 +49,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     }
   }, [sortConfig]);
 
-  // Create new hospital state
   const [newHospital, setNewHospital] = useState({
     name: '',
     address: '',
@@ -59,7 +57,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     stage: SalesStage.LEAD
   });
 
-  // 排序順序定義
   const regionOrder: Record<string, number> = { '北區': 1, '中區': 2, '南區': 3, '東區': 4 };
   const levelOrder: Record<string, number> = {
     [HospitalLevel.MEDICAL_CENTER]: 1,
@@ -75,7 +72,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     [SalesStage.CLOSED_LOST]: 6
   };
 
-  // 格式化日期的 helper function
   const formatLastVisit = (lastVisit: string): string => {
     if (lastVisit === 'Never') return '尚未拜訪';
     try {
@@ -85,7 +81,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     }
   };
 
-  // 格式化金額
   const formatCurrency = (amount: number | undefined): string => {
     if (!amount) return '-';
     return new Intl.NumberFormat('zh-TW', {
@@ -96,53 +91,36 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     }).format(amount);
   };
 
-  // 取得中文字筆畫數（用於排序）
-  const getStrokeOrder = (name: string): number => {
-    // 使用 localeCompare 的 stroke 排序來比較
-    // 這裡回傳一個用於排序的數值
-    return name.charCodeAt(0);
-  };
-
-  // Derive unique regions for filter dropdown
   const uniqueRegions = useMemo(() => {
     const regions = new Set(hospitals.map(h => h.region));
     return ['All', ...Array.from(regions).sort()];
   }, [hospitals]);
 
-  // 預設排序函數：區域 → 等級 → 名稱（筆畫多到少）
   const defaultSort = (a: Hospital, b: Hospital): number => {
-    // 1. 區域排序（北→中→南→東）
     const regionA = regionOrder[a.region] || 99;
     const regionB = regionOrder[b.region] || 99;
     if (regionA !== regionB) return regionA - regionB;
 
-    // 2. 等級排序（醫學中心→區域醫院→地區醫院）
     const levelA = levelOrder[a.level] || 99;
     const levelB = levelOrder[b.level] || 99;
     if (levelA !== levelB) return levelA - levelB;
 
-    // 3. 名稱排序（筆畫多到少，即 desc）
     return b.name.localeCompare(a.name, 'zh-TW-u-co-stroke');
   };
 
   const sortedHospitals = useMemo(() => {
-    // 1. Filter
     const filtered = hospitals.filter(h => {
       const matchesSearch = h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         h.region.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchesStage = activeFilters.stage === 'All' || h.stage === activeFilters.stage;
       const matchesRegion = activeFilters.region === 'All' || h.region === activeFilters.region;
-
       return matchesSearch && matchesStage && matchesRegion;
     });
 
-    // 2. Sort - 如果沒有自訂排序，使用預設排序
     if (!sortConfig) {
       return [...filtered].sort(defaultSort);
     }
 
-    // 自訂排序
     return [...filtered].sort((a, b) => {
       let comparison = 0;
 
@@ -154,7 +132,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         const aVal = levelOrder[a.level] || 99;
         const bVal = levelOrder[b.level] || 99;
         comparison = aVal - bVal;
-        // 次要排序：相同等級時按區域排序（固定北→中→南→東）
         if (comparison === 0) {
           const aRegion = regionOrder[a.region] || 99;
           const bRegion = regionOrder[b.region] || 99;
@@ -164,7 +141,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         const aVal = stageOrder[a.stage] || 99;
         const bVal = stageOrder[b.stage] || 99;
         comparison = aVal - bVal;
-        // 次要排序：相同狀態時按區域排序（固定北→中→南→東）
         if (comparison === 0) {
           const aRegion = regionOrder[a.region] || 99;
           const bRegion = regionOrder[b.region] || 99;
@@ -175,13 +151,10 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         const bVal = b.chargePerUse || 0;
         comparison = aVal - bVal;
       } else {
-        // 名稱使用中文筆畫排序
         comparison = a.name.localeCompare(b.name, 'zh-TW-u-co-stroke');
       }
 
-      // 主要排序方向（次要排序區域始終固定北→中→南→東）
       if (sortConfig.key === 'level' || sortConfig.key === 'stage') {
-        // 只對主要排序欄位套用方向，區域次要排序保持固定
         const primaryComparison = sortConfig.key === 'level'
           ? (levelOrder[a.level] || 99) - (levelOrder[b.level] || 99)
           : (stageOrder[a.stage] || 99) - (stageOrder[b.stage] || 99);
@@ -191,7 +164,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         if (primaryComparison !== 0) {
           return sortConfig.direction === 'asc' ? primaryComparison : -primaryComparison;
         }
-        return regionComparison; // 區域始終固定順序
+        return regionComparison;
       }
 
       return sortConfig.direction === 'asc' ? comparison : -comparison;
@@ -225,7 +198,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
   const resetFilters = () => {
     setActiveFilters({ stage: 'All', region: 'All' });
     setSearchTerm('');
-    setSortConfig(null); // 重置為預設排序
+    setSortConfig(null);
   };
 
   const getStageBadge = (stage: SalesStage) => {
@@ -238,7 +211,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
       [SalesStage.CLOSED_LOST]: 'bg-red-50 text-red-600 ring-red-100',
     };
     return (
-      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset ${colors[stage]}`}>
+      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset whitespace-nowrap ${colors[stage]}`}>
         {stage}
       </span>
     );
@@ -246,7 +219,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
 
   const getEquipmentSummary = (hospital: Hospital) => {
     if (!hospital.installedEquipment || hospital.installedEquipment.length === 0) {
-      return <span className="text-slate-400 text-sm italic">無</span>;
+      return <span className="text-slate-400 text-sm">-</span>;
     }
 
     const summary = hospital.installedEquipment.reduce((acc, curr) => {
@@ -255,11 +228,12 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
     }, {} as Record<string, number>);
 
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1">
         {Object.entries(summary).map(([code, qty]) => (
-          <div key={code} className="flex items-center bg-slate-50 border border-slate-100 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-700">
-            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${code === 'MR810' ? 'bg-blue-500' : 'bg-indigo-500'}`}></span>
-            <span>{code} <span className="text-slate-400 ml-0.5">x{qty}</span></span>
+          <div key={code} className="flex items-center text-xs text-slate-600">
+            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${code === 'MR810' ? 'bg-blue-500' : 'bg-indigo-500'}`}></span>
+            <span>{code}</span>
+            <span className="text-slate-400 ml-0.5">x{qty}</span>
           </div>
         ))}
       </div>
@@ -308,7 +282,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
               <span className="hidden md:flex h-2 w-2 rounded-full bg-blue-600 ml-1 ring-2 ring-white"></span>
             )}
           </button>
-          {/* Mobile Add Button */}
           <button
             onClick={() => setIsModalOpen(true)}
             className="md:hidden shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/20 active:scale-95 transition-transform"
@@ -317,7 +290,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
           </button>
         </div>
 
-        {/* Mobile Sort Bar - Inside the search box */}
+        {/* Mobile Sort Bar */}
         <div className="md:hidden mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="text-xs text-slate-500 font-medium shrink-0">排序：</span>
           {([
@@ -382,30 +355,30 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         )}
       </div>
 
-      {/* Desktop Table View (Hidden on Mobile) */}
+      {/* Desktop Table View */}
       <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 flex-1 min-h-0 overflow-hidden">
-        <div className="overflow-auto h-full">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto h-full">
+          <table className="w-full text-left min-w-[900px]">
             <thead className="bg-slate-50/80 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('name')}>
+                <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group w-[200px]" onClick={() => handleSort('name')}>
                   <div className="flex items-center">醫院名稱 {getSortIcon('name')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('region')}>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group w-[70px]" onClick={() => handleSort('region')}>
                   <div className="flex items-center">區域 {getSortIcon('region')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('level')}>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group w-[90px]" onClick={() => handleSort('level')}>
                   <div className="flex items-center">等級 {getSortIcon('level')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('chargePerUse')}>
-                  <div className="flex items-center">收費金額 {getSortIcon('chargePerUse')}</div>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group w-[90px]" onClick={() => handleSort('chargePerUse')}>
+                  <div className="flex items-center">收費 {getSortIcon('chargePerUse')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">設備安裝</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group" onClick={() => handleSort('stage')}>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-[120px] hidden lg:table-cell">設備</th>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group w-[80px]" onClick={() => handleSort('stage')}>
                   <div className="flex items-center">狀態 {getSortIcon('stage')}</div>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">上次拜訪</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider"></th>
+                <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-[100px]">上次拜訪</th>
+                <th className="px-3 py-4 w-[40px]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -415,36 +388,31 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
                   onClick={() => onSelectHospital(hospital.id)}
                   className="hover:bg-blue-50/30 transition-colors cursor-pointer group"
                 >
-                  <td className="px-6 py-5">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold shadow-inner ring-1 ring-white">
-                        {hospital.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors block">{hospital.name}</span>
-                        <span className="text-xs text-slate-400">{hospital.address}</span>
-                      </div>
+                  <td className="px-5 py-4">
+                    <div>
+                      <span className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors block">{hospital.name}</span>
+                      <span className="text-xs text-slate-400 truncate block max-w-[200px]">{hospital.address}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-600 font-medium">{hospital.region}</td>
-                  <td className="px-6 py-5 text-sm text-slate-600">
-                    <span className="bg-slate-50 text-slate-700 px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200">{hospital.level}</span>
+                  <td className="px-4 py-4 text-sm text-slate-600 font-medium">{hospital.region}</td>
+                  <td className="px-4 py-4 text-sm">
+                    <span className="text-slate-700 text-xs font-medium">{hospital.level}</span>
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-600 font-medium">
+                  <td className="px-4 py-4 text-sm">
                     {hospital.chargePerUse ? (
-                      <span className="text-amber-600 font-semibold">{formatCurrency(hospital.chargePerUse)}</span>
+                      <span className="text-amber-600 font-semibold text-sm">{formatCurrency(hospital.chargePerUse)}</span>
                     ) : (
                       <span className="text-slate-400">-</span>
                     )}
                   </td>
-                  <td className="px-6 py-5">
+                  <td className="px-4 py-4 hidden lg:table-cell">
                     {getEquipmentSummary(hospital)}
                   </td>
-                  <td className="px-6 py-5">
+                  <td className="px-4 py-4">
                     {getStageBadge(hospital.stage)}
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-500 font-medium">{formatLastVisit(hospital.lastVisit)}</td>
-                  <td className="px-6 py-5 text-slate-400 text-right">
+                  <td className="px-4 py-4 text-sm text-slate-500">{formatLastVisit(hospital.lastVisit)}</td>
+                  <td className="px-3 py-4 text-slate-400 text-right">
                     <ChevronRight size={18} className="group-hover:text-blue-500 inline-block transition-transform group-hover:translate-x-1" />
                   </td>
                 </tr>
@@ -454,7 +422,7 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
         </div>
       </div>
 
-      {/* Mobile Card View (Hidden on Desktop) */}
+      {/* Mobile Card View */}
       <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-4 pb-4">
         {sortedHospitals.map((hospital) => (
           <div
@@ -463,16 +431,11 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
             className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 active:scale-[0.98] transition-transform cursor-pointer"
           >
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold shadow-sm">
-                  {hospital.name.substring(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 leading-tight text-lg">{hospital.name}</h3>
-                  <div className="flex items-center text-xs text-slate-500 mt-1">
-                    <MapPin size={12} className="mr-1" />
-                    {hospital.region}
-                  </div>
+              <div>
+                <h3 className="font-bold text-slate-900 leading-tight text-lg">{hospital.name}</h3>
+                <div className="flex items-center text-xs text-slate-500 mt-1">
+                  <MapPin size={12} className="mr-1" />
+                  {hospital.region} · {hospital.level}
                 </div>
               </div>
               <div className="mt-1">
@@ -481,10 +444,6 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
             </div>
 
             <div className="space-y-3 mt-4 pt-4 border-t border-slate-100">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 flex items-center"><Building size={14} className="mr-1.5" /> 等級</span>
-                <span className="text-slate-900 font-medium">{hospital.level}</span>
-              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500 flex items-center"><DollarSign size={14} className="mr-1.5" /> 收費</span>
                 <span className={hospital.chargePerUse ? "text-amber-600 font-semibold" : "text-slate-400"}>

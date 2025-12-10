@@ -19,6 +19,7 @@ import {
   updateHospital,
   createNote,
   updateNote,
+  deleteNote,
   createContact,
   updateContact,
   createUsageRecord,
@@ -39,6 +40,7 @@ const HospitalDetailWrapper: React.FC<{
   onUpdateHospital: (hospital: Hospital) => void;
   onAddNote: (note: Note) => void;
   onUpdateNote: (note: Note) => void;
+  onDeleteNote: (noteId: string) => void;
   onUpdateContact: (contact: Contact) => void;
   onAddContact: (contact: Contact) => void;
   onAddUsageRecord: (record: UsageRecord) => void;
@@ -54,6 +56,7 @@ const HospitalDetailWrapper: React.FC<{
   onUpdateHospital,
   onAddNote,
   onUpdateNote,
+  onDeleteNote,
   onUpdateContact,
   onAddContact,
   onAddUsageRecord,
@@ -96,6 +99,7 @@ const HospitalDetailWrapper: React.FC<{
       onUpdateHospital={onUpdateHospital}
       onAddNote={onAddNote}
       onUpdateNote={onUpdateNote}
+      onDeleteNote={onDeleteNote}
       onUpdateContact={onUpdateContact}
       onAddContact={onAddContact}
       onAddUsageRecord={onAddUsageRecord}
@@ -261,6 +265,18 @@ const AppContent: React.FC = () => {
           ));
         }
       }
+    }
+  };
+
+  // 刪除筆記 (樂觀更新)
+  const handleDeleteNote = async (noteId: string) => {
+    // 先更新 UI
+    setNotes(prev => prev.filter(n => n.id !== noteId));
+
+    const success = await deleteNote(noteId);
+    if (!success) {
+      // 失敗時重新載入
+      loadData(false);
     }
   };
 
@@ -456,6 +472,7 @@ const AppContent: React.FC = () => {
               onUpdateHospital={handleUpdateHospital}
               onAddNote={handleAddNote}
               onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
               onUpdateContact={handleUpdateContact}
               onAddContact={handleAddContact}
               onAddUsageRecord={handleAddUsageRecord}

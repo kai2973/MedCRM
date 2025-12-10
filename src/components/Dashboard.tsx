@@ -213,9 +213,9 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
       </div>
 
       {/* Main Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Sales Trend (2/3 width) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Sales Trend (2/3 width on xl, full width on smaller) */}
+        <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
@@ -249,18 +249,18 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
           </div>
         </div>
 
-        {/* Pipeline Funnel (1/3 width) */}
+        {/* 醫院狀態 (1/3 width on xl, full width on smaller) */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">銷售漏斗</h2>
-          <div className="h-80 w-full relative">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">醫院狀態</h2>
+          <div className="h-80 w-full relative flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={pipelineData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={70}
-                  outerRadius={100}
+                  innerRadius="50%"
+                  outerRadius="75%"
                   paddingAngle={5}
                   dataKey="value"
                   cornerRadius={6}
@@ -304,43 +304,49 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
           </div>
         </div>
 
-        {/* Product Mix */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">產品組合</h2>
-          <div className="flex items-center justify-center h-64">
-            <div className="w-full h-full flex gap-8">
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={productMixData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={90}
-                      innerRadius={50}
-                      dataKey="value"
-                      cornerRadius={4}
-                    >
-                      {productMixData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth={2} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex-1 flex flex-col justify-center space-y-4">
-                {productMixData.slice(0, 4).map((item, idx) => (
-                  <div key={item.name} className="flex justify-between items-center text-sm group">
-                    <div className="flex items-center">
-                      <span className="w-3 h-3 rounded-full mr-3 ring-2 ring-white shadow-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                      <span className="text-slate-600 font-medium group-hover:text-slate-900 transition-colors">{item.name}</span>
+        {/* 產品銷售佔比 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8 overflow-hidden">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">產品銷售佔比</h2>
+          <div className="h-64">
+            {productMixData.length > 0 ? (
+              <div className="w-full h-full flex flex-col sm:flex-row gap-4 items-center">
+                {/* 圓環圖 */}
+                <div className="w-full sm:w-1/2 h-48 sm:h-full flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={productMixData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="80%"
+                        innerRadius="50%"
+                        dataKey="value"
+                        cornerRadius={4}
+                      >
+                        {productMixData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* 圖例 */}
+                <div className="w-full sm:w-1/2 flex flex-col justify-center space-y-3">
+                  {productMixData.slice(0, 5).map((item, idx) => (
+                    <div key={item.name} className="flex justify-between items-center text-sm group">
+                      <div className="flex items-center min-w-0">
+                        <span className="w-3 h-3 rounded-full mr-3 ring-2 ring-white shadow-sm flex-shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                        <span className="text-slate-600 font-medium group-hover:text-slate-900 transition-colors truncate">{item.name}</span>
+                      </div>
+                      <span className="font-bold text-slate-900 ml-2 flex-shrink-0">{item.value}</span>
                     </div>
-                    <span className="font-bold text-slate-900">{item.value}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm bg-slate-50 rounded-xl">尚無產品數據</div>
+            )}
           </div>
         </div>
       </div>

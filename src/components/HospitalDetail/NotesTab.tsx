@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Wand2, Send, Edit, FileText, X,
     Smile, Meh, Frown, Tag, User as UserIcon, ArrowRightCircle,
-    Calendar, Save, Plus, UserPlus, Check
+    Calendar, Save, Plus, UserPlus, Check, Trash2, AlertTriangle
 } from 'lucide-react';
 import { Note, ActivityType, Hospital, Contact, Sentiment } from '@/types';
 import { refineNoteContent } from '../../services/geminiService';
@@ -14,6 +14,7 @@ interface NotesTabProps {
     contacts: Contact[];
     onAddNote: (note: Note) => void;
     onUpdateNote: (note: Note) => void;
+    onDeleteNote: (noteId: string) => void;
     onAddContact: (contact: Contact) => void;
 }
 
@@ -87,6 +88,7 @@ const NotesTab: React.FC<NotesTabProps> = ({
     contacts,
     onAddNote,
     onUpdateNote,
+    onDeleteNote,
     onAddContact
 }) => {
     // Form State
@@ -109,6 +111,10 @@ const NotesTab: React.FC<NotesTabProps> = ({
     const [showAddContactModal, setShowAddContactModal] = useState(false);
     const [pendingContacts, setPendingContacts] = useState<PendingContact[]>([]);
     const [pendingNoteData, setPendingNoteData] = useState<any>(null);
+
+    // 刪除確認彈窗狀態
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
 
     const PREDEFINED_TAGS = ['價格異議', '競品比較', '需要報價', '售後服務', '新產品介紹', ...PRODUCTS.map(p => p.code)];
 
@@ -141,6 +147,19 @@ const NotesTab: React.FC<NotesTabProps> = ({
         setIsFormOpen(true);
         setIsExpanded(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteClick = (note: Note) => {
+        setNoteToDelete(note);
+        setShowDeleteModal(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (noteToDelete) {
+            onDeleteNote(noteToDelete.id);
+            setShowDeleteModal(false);
+            setNoteToDelete(null);
+        }
     };
 
     const handleRefineNote = async () => {
@@ -286,6 +305,49 @@ const NotesTab: React.FC<NotesTabProps> = ({
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* 刪除確認彈窗 */}
+            {showDeleteModal && noteToDelete && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                <AlertTriangle size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">刪除活動記錄</h3>
+                                <p className="text-sm text-slate-500">此操作無法復原</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 rounded-xl p-4 mb-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-medium text-slate-700">{noteToDelete.activityType}</span>
+                                <span className="text-xs text-slate-400">• {new Date(noteToDelete.date).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-sm text-slate-600 line-clamp-2">{noteToDelete.content}</p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setNoteToDelete(null);
+                                }}
+                                className="flex-1 px-4 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className="flex-1 px-4 py-2.5 text-white bg-red-600 hover:bg-red-700 rounded-xl font-medium transition-colors"
+                            >
+                                確認刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 新增聯絡人確認彈窗 */}
             {showAddContactModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -619,6 +681,13 @@ const NotesTab: React.FC<NotesTabProps> = ({
                                     title="編輯"
                                 >
                                     <Edit size={14} />
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteClick(note)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    title="刪除"
+                                >
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         </div>

@@ -109,3 +109,21 @@ export interface AIResponse {
   text: string;
   suggestedAction?: 'EMAIL' | 'MEETING' | 'ORDER';
 }
+
+// 合約類型
+export type ContractType = 'consumable' | 'equipment';
+
+// 保養頻率
+export type MaintenanceFrequency = 'yearly' | 'biannual' | 'quarterly' | 'monthly';
+
+// 合約資訊
+export interface Contract {
+  id: string;
+  hospitalId: string;
+  productCode: string;
+  contractType: ContractType;
+  startDate: string;
+  durationYears: number;
+  warrantyYears?: number;
+  maintenanceFrequency?: MaintenanceFrequency;
+}

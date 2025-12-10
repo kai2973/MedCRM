@@ -419,6 +419,22 @@ export const updateNote = async (note: Note): Promise<boolean> => {
   });
 };
 
+export const deleteNote = async (noteId: string): Promise<boolean> => {
+  return withRetry(async () => {
+    const { error } = await supabase
+      .from('notes')
+      .delete()
+      .eq('id', noteId);
+
+    if (error) {
+      console.error('Error deleting note:', error);
+      throw error;
+    }
+
+    return true;
+  });
+};
+
 // ============== 使用記錄/訂單 CRUD ==============
 
 export const fetchUsageRecords = async (): Promise<UsageRecord[]> => {
@@ -593,5 +609,136 @@ export const fetchAllProfiles = async (): Promise<ProfileSummary[]> => {
       email: p.email || '',
       role_type: p.role_type || 'sales'
     }));
+  });
+};
+
+// ============== 合約 CRUD ==============
+
+import { Contract, ContractType, MaintenanceFrequency } from '../types';
+
+export const fetchContracts = async (): Promise<Contract[]> => {
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('contracts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching contracts:', error);
+      throw error;
+    }
+
+    return (data || []).map(c => ({
+      id: c.id,
+      hospitalId: c.hospital_id,
+      productCode: c.product_code,
+      contractType: c.contract_type as ContractType,
+      startDate: c.start_date,
+      durationYears: c.duration_years,
+      warrantyYears: c.warranty_years || undefined,
+      maintenanceFrequency: c.maintenance_frequency as MaintenanceFrequency || undefined
+    }));
+  });
+};
+
+export const fetchContractsByHospital = async (hospitalId: string): Promise<Contract[]> => {
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('contracts')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching contracts:', error);
+      throw error;
+    }
+
+    return (data || []).map(c => ({
+      id: c.id,
+      hospitalId: c.hospital_id,
+      productCode: c.product_code,
+      contractType: c.contract_type as ContractType,
+      startDate: c.start_date,
+      durationYears: c.duration_years,
+      warrantyYears: c.warranty_years || undefined,
+      maintenanceFrequency: c.maintenance_frequency as MaintenanceFrequency || undefined
+    }));
+  });
+};
+
+export const createContract = async (contract: Omit<Contract, 'id'>): Promise<Contract | null> => {
+  return withRetry(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+      .from('contracts')
+      .insert({
+        hospital_id: contract.hospitalId,
+        product_code: contract.productCode,
+        contract_type: contract.contractType,
+        start_date: contract.startDate,
+        duration_years: contract.durationYears,
+        warranty_years: contract.warrantyYears || null,
+        maintenance_frequency: contract.maintenanceFrequency || null,
+        user_id: user?.id || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating contract:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      hospitalId: data.hospital_id,
+      productCode: data.product_code,
+      contractType: data.contract_type as ContractType,
+      startDate: data.start_date,
+      durationYears: data.duration_years,
+      warrantyYears: data.warranty_years || undefined,
+      maintenanceFrequency: data.maintenance_frequency as MaintenanceFrequency || undefined
+    };
+  });
+};
+
+export const updateContract = async (contract: Contract): Promise<boolean> => {
+  return withRetry(async () => {
+    const { error } = await supabase
+      .from('contracts')
+      .update({
+        product_code: contract.productCode,
+        contract_type: contract.contractType,
+        start_date: contract.startDate,
+        duration_years: contract.durationYears,
+        warranty_years: contract.warrantyYears || null,
+        maintenance_frequency: contract.maintenanceFrequency || null
+      })
+      .eq('id', contract.id);
+
+    if (error) {
+      console.error('Error updating contract:', error);
+      throw error;
+    }
+
+    return true;
+  });
+};
+
+export const deleteContract = async (contractId: string): Promise<boolean> => {
+  return withRetry(async () => {
+    const { error } = await supabase
+      .from('contracts')
+      .delete()
+      .eq('id', contractId);
+
+    if (error) {
+      console.error('Error deleting contract:', error);
+      throw error;
+    }
+
+    return true;
   });
 };
