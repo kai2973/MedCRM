@@ -17,6 +17,15 @@ interface OverviewTabProps {
     onUpdateHospital?: (hospital: Hospital) => Promise<void> | void;
 }
 
+// 自訂下拉箭頭元件
+const SelectArrow = () => (
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+    </div>
+);
+
 const OverviewTab: React.FC<OverviewTabProps> = ({
     hospital,
     contacts,
@@ -387,9 +396,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-5">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">設備型號</label>
-                                <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={equipmentForm.productCode} onChange={(e) => setEquipmentForm({ ...equipmentForm, productCode: e.target.value })} disabled={isSavingEquipment}>
-                                    {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={equipmentForm.productCode} onChange={(e) => setEquipmentForm({ ...equipmentForm, productCode: e.target.value })} disabled={isSavingEquipment}>
+                                        {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">數量</label>
@@ -401,10 +413,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">所有權</label>
-                                <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={equipmentForm.ownership} onChange={(e) => setEquipmentForm({ ...equipmentForm, ownership: e.target.value as '租賃' | '買斷' })} disabled={isSavingEquipment}>
-                                    <option value="租賃">租賃</option>
-                                    <option value="買斷">買斷</option>
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={equipmentForm.ownership} onChange={(e) => setEquipmentForm({ ...equipmentForm, ownership: e.target.value as '租賃' | '買斷' })} disabled={isSavingEquipment}>
+                                        <option value="租賃">租賃</option>
+                                        <option value="買斷">買斷</option>
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end">
@@ -613,14 +628,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">產品</label>
-                                <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={contractForm.productCode} onChange={(e) => handleContractProductChange(e.target.value)} disabled={isSavingContract}>
-                                    <optgroup label="設備">
-                                        {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                    </optgroup>
-                                    <optgroup label="耗材">
-                                        {consumableProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                    </optgroup>
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={contractForm.productCode} onChange={(e) => handleContractProductChange(e.target.value)} disabled={isSavingContract}>
+                                        <optgroup label="設備">
+                                            {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                        </optgroup>
+                                        <optgroup label="耗材">
+                                            {consumableProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                        </optgroup>
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">合約開始日</label>
@@ -628,26 +646,35 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">合約年限</label>
-                                <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={contractForm.durationYears} onChange={(e) => setContractForm({ ...contractForm, durationYears: Number(e.target.value) })} disabled={isSavingContract}>
-                                    {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={contractForm.durationYears} onChange={(e) => setContractForm({ ...contractForm, durationYears: Number(e.target.value) })} disabled={isSavingContract}>
+                                        {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             {contractForm.contractType === 'equipment' && (
                                 <>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">保固年限</label>
-                                        <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={contractForm.warrantyYears} onChange={(e) => setContractForm({ ...contractForm, warrantyYears: Number(e.target.value) })} disabled={isSavingContract}>
-                                            {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
-                                        </select>
+                                        <div className="relative">
+                                            <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={contractForm.warrantyYears} onChange={(e) => setContractForm({ ...contractForm, warrantyYears: Number(e.target.value) })} disabled={isSavingContract}>
+                                                {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
+                                            </select>
+                                            <SelectArrow />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">保養頻率</label>
-                                        <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" value={contractForm.maintenanceFrequency} onChange={(e) => setContractForm({ ...contractForm, maintenanceFrequency: e.target.value as MaintenanceFrequency })} disabled={isSavingContract}>
-                                            <option value="yearly">每年 1 次</option>
-                                            <option value="biannual">每半年 1 次</option>
-                                            <option value="quarterly">每季 1 次</option>
-                                            <option value="monthly">每月 1 次</option>
-                                        </select>
+                                        <div className="relative">
+                                            <select className="w-full p-3 rounded-xl border-slate-300 border focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm appearance-none cursor-pointer" value={contractForm.maintenanceFrequency} onChange={(e) => setContractForm({ ...contractForm, maintenanceFrequency: e.target.value as MaintenanceFrequency })} disabled={isSavingContract}>
+                                                <option value="yearly">每年 1 次</option>
+                                                <option value="biannual">每半年 1 次</option>
+                                                <option value="quarterly">每季 1 次</option>
+                                                <option value="monthly">每月 1 次</option>
+                                            </select>
+                                            <SelectArrow />
+                                        </div>
                                     </div>
                                 </>
                             )}
@@ -678,8 +705,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div key={contract.id} className={`p-4 rounded-xl border transition-all group ${status.status === 'expired' ? 'bg-red-50 border-red-200' : status.status === 'warning' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                         <div className="flex items-start gap-3">
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${isEquipment ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                {contract.productCode.substring(0, 2)}
+                                            <div className={`w-14 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${isEquipment ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                                {contract.productCode}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
@@ -765,9 +792,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="p-6 space-y-5">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">設備型號</label>
-                                <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editingEquipment.productCode} onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })} disabled={isSavingEquipment}>
-                                    {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={editingEquipment.productCode} onChange={(e) => setEditingEquipment({ ...editingEquipment, productCode: e.target.value })} disabled={isSavingEquipment}>
+                                        {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">數量</label>
@@ -779,10 +809,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">所有權</label>
-                                <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editingEquipment.ownership} onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })} disabled={isSavingEquipment}>
-                                    <option value="租賃">租賃</option>
-                                    <option value="買斷">買斷</option>
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={editingEquipment.ownership} onChange={(e) => setEditingEquipment({ ...editingEquipment, ownership: e.target.value as '租賃' | '買斷' })} disabled={isSavingEquipment}>
+                                        <option value="租賃">租賃</option>
+                                        <option value="買斷">買斷</option>
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div className="pt-4 flex space-x-3">
                                 <button onClick={handleUpdateEquipmentSubmit} disabled={isSavingEquipment} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center">
@@ -809,14 +842,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="p-6 space-y-5">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">產品</label>
-                                <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={contractForm.productCode} onChange={(e) => handleContractProductChange(e.target.value)} disabled={isSavingContract}>
-                                    <optgroup label="設備">
-                                        {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                    </optgroup>
-                                    <optgroup label="耗材">
-                                        {consumableProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
-                                    </optgroup>
-                                </select>
+                                <div className="relative">
+                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={contractForm.productCode} onChange={(e) => handleContractProductChange(e.target.value)} disabled={isSavingContract}>
+                                        <optgroup label="設備">
+                                            {equipmentProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                        </optgroup>
+                                        <optgroup label="耗材">
+                                            {consumableProducts.map(p => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
+                                        </optgroup>
+                                    </select>
+                                    <SelectArrow />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -825,27 +861,36 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">合約年限</label>
-                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={contractForm.durationYears} onChange={(e) => setContractForm({ ...contractForm, durationYears: Number(e.target.value) })} disabled={isSavingContract}>
-                                        {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
-                                    </select>
+                                    <div className="relative">
+                                        <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={contractForm.durationYears} onChange={(e) => setContractForm({ ...contractForm, durationYears: Number(e.target.value) })} disabled={isSavingContract}>
+                                            {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
+                                        </select>
+                                        <SelectArrow />
+                                    </div>
                                 </div>
                             </div>
                             {contractForm.contractType === 'equipment' && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">保固年限</label>
-                                        <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={contractForm.warrantyYears} onChange={(e) => setContractForm({ ...contractForm, warrantyYears: Number(e.target.value) })} disabled={isSavingContract}>
-                                            {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
-                                        </select>
+                                        <div className="relative">
+                                            <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={contractForm.warrantyYears} onChange={(e) => setContractForm({ ...contractForm, warrantyYears: Number(e.target.value) })} disabled={isSavingContract}>
+                                                {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>{y} 年</option>)}
+                                            </select>
+                                            <SelectArrow />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">保養頻率</label>
-                                        <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={contractForm.maintenanceFrequency} onChange={(e) => setContractForm({ ...contractForm, maintenanceFrequency: e.target.value as MaintenanceFrequency })} disabled={isSavingContract}>
-                                            <option value="yearly">每年 1 次</option>
-                                            <option value="biannual">每半年 1 次</option>
-                                            <option value="quarterly">每季 1 次</option>
-                                            <option value="monthly">每月 1 次</option>
-                                        </select>
+                                        <div className="relative">
+                                            <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer" value={contractForm.maintenanceFrequency} onChange={(e) => setContractForm({ ...contractForm, maintenanceFrequency: e.target.value as MaintenanceFrequency })} disabled={isSavingContract}>
+                                                <option value="yearly">每年 1 次</option>
+                                                <option value="biannual">每半年 1 次</option>
+                                                <option value="quarterly">每季 1 次</option>
+                                                <option value="monthly">每月 1 次</option>
+                                            </select>
+                                            <SelectArrow />
+                                        </div>
                                     </div>
                                 </div>
                             )}
