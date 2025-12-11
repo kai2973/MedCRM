@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 
@@ -27,10 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<ExtendedProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // 追蹤最後一次 visibility check 的時間
-  const lastVisibilityCheck = useRef<number>(0);
-  const VISIBILITY_CHECK_INTERVAL = 30000; // 最少間隔 30 秒
 
   // 載入使用者 profile
   const loadProfile = useCallback(async (userId: string) => {
@@ -92,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // 監聽認證狀態變化
+    // 監聽認證狀態變化 - Supabase 會自動處理 token 刷新
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
       
@@ -100,23 +96,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        await loadProfile(session.user.id);
+        // 使用 setTimeout 避免阻塞
+        setTimeout(() => loadProfile(session.user.id), 0);
       } else {
         setProfile(null);
       }
       
       // 處理特定事件
-      switch (event) {
-        case 'TOKEN_REFRESHED':
-          console.log('Token was refreshed successfully');
-          break;
-        case 'SIGNED_OUT':
-          console.log('User signed out');
-          sessionStorage.removeItem('hospitalSortConfig');
-          break;
-        case 'USER_UPDATED':
-          console.log('User was updated');
-          break;
+      if (event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('hospitalSortConfig');
       }
       
       setLoading(false);
@@ -127,70 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadProfile]);
 
-  // 定期檢查並刷新 session（每 10 分鐘，而不是 4 分鐘）
-  useEffect(() => {
-    if (!session) return;
-
-    const checkAndRefreshSession = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        
-        if (!currentSession) {
-          console.warn('Session lost during periodic check');
-          return;
-        }
-        
-        // 只有當 token 將在 5 分鐘內過期時才刷新
-        const expiresAt = currentSession.expires_at;
-        if (expiresAt) {
-          const now = Math.floor(Date.now() / 1000);
-          const timeUntilExpiry = expiresAt - now;
-          
-          if (timeUntilExpiry < 300) {
-            console.log('Token expiring soon, refreshing...');
-            await refreshSession();
-          }
-        }
-      } catch (error) {
-        console.error('Error in periodic session check:', error);
-      }
-    };
-
-    // 每 10 分鐘檢查一次（而不是 4 分鐘）
-    const intervalId = setInterval(checkAndRefreshSession, 10 * 60 * 1000);
-
-    // 當頁面從背景恢復時檢查（但有節流）
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        
-        // 節流：最少間隔 30 秒
-        if (now - lastVisibilityCheck.current < VISIBILITY_CHECK_INTERVAL) {
-          return;
-        }
-        
-        lastVisibilityCheck.current = now;
-        console.log('Page became visible, checking session...');
-        checkAndRefreshSession();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // 當網路恢復時檢查
-    const handleOnline = () => {
-      console.log('Network restored, checking session...');
-      checkAndRefreshSession();
-    };
-
-    window.addEventListener('online', handleOnline);
-
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, [session, refreshSession]);
+  // 注意：完全移除了 visibilitychange 和 online 事件監聽
+  // Supabase client 的 autoRefreshToken: true 會自動處理 token 刷新
 
   // 登入
   const signIn = async (email: string, password: string) => {
