@@ -13,14 +13,25 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // 設定較短的 storage key 避免衝突
     storageKey: 'medcrm-auth',
   }
 });
 
-// 確保 session 有效的 helper function
+// 簡化的 session 檢查 - 只在真正需要時才刷新
+let lastSessionCheck = 0;
+const SESSION_CHECK_INTERVAL = 60000; // 最多每分鐘檢查一次
+
 export const ensureValidSession = async (): Promise<boolean> => {
   try {
+    const now = Date.now();
+    
+    // 避免太頻繁檢查
+    if (now - lastSessionCheck < SESSION_CHECK_INTERVAL) {
+      return true; // 假設 session 仍有效
+    }
+    
+    lastSessionCheck = now;
+    
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
@@ -33,16 +44,15 @@ export const ensureValidSession = async (): Promise<boolean> => {
       return false;
     }
     
-    // 檢查 token 是否即將過期（5 分鐘內）
+    // 只有當 token 將在 2 分鐘內過期時才刷新
     const expiresAt = session.expires_at;
     if (expiresAt) {
-      const now = Math.floor(Date.now() / 1000);
-      const timeUntilExpiry = expiresAt - now;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const timeUntilExpiry = expiresAt - nowSeconds;
       
-      // 如果 token 將在 5 分鐘內過期，嘗試刷新
-      if (timeUntilExpiry < 300) {
+      if (timeUntilExpiry < 120) {
         console.log('Token expiring soon, refreshing...');
-        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        const { error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError) {
           console.error('Failed to refresh session:', refreshError);
@@ -50,70 +60,14 @@ export const ensureValidSession = async (): Promise<boolean> => {
         }
         
         console.log('Session refreshed successfully');
-        return !!data.session;
       }
     }
     
     return true;
   } catch (error) {
     console.error('Error checking session:', error);
-    return false;
+    return true; // 發生錯誤時不阻止操作，讓 Supabase client 自己處理
   }
-};
-
-// 帶有自動重試的 API 請求包裝器
-export const withRetry = async <T>(
-  operation: () => Promise<{ data: T | null; error: any }>,
-  maxRetries: number = 2
-): Promise<{ data: T | null; error: any }> => {
-  let lastError: any = null;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      // 確保 session 有效
-      const isValid = await ensureValidSession();
-      
-      if (!isValid && attempt === maxRetries) {
-        // 最後一次嘗試仍然無效，返回錯誤
-        return { 
-          data: null, 
-          error: { message: 'Session expired. Please refresh the page and log in again.' } 
-        };
-      }
-      
-      const result = await operation();
-      
-      // 檢查是否是認證錯誤
-      if (result.error) {
-        const errorMessage = result.error.message?.toLowerCase() || '';
-        const isAuthError = 
-          errorMessage.includes('jwt') ||
-          errorMessage.includes('token') ||
-          errorMessage.includes('unauthorized') ||
-          errorMessage.includes('auth') ||
-          result.error.code === 'PGRST301';
-        
-        if (isAuthError && attempt < maxRetries) {
-          console.log(`Auth error on attempt ${attempt + 1}, retrying...`);
-          // 嘗試刷新 session
-          await supabase.auth.refreshSession();
-          continue;
-        }
-      }
-      
-      return result;
-    } catch (error) {
-      lastError = error;
-      console.error(`Operation failed on attempt ${attempt + 1}:`, error);
-      
-      if (attempt < maxRetries) {
-        // 等待一小段時間再重試
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-  }
-  
-  return { data: null, error: lastError };
 };
 
 // Database Types

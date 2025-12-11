@@ -1,23 +1,16 @@
-import { supabase, ensureValidSession } from '../lib/supabase';
-import { Hospital, Contact, Note, UsageRecord, InstalledEquipment, SalesStage, HospitalLevel, ConsumablePrice } from '../types';
+import { supabase } from '../lib/supabase';
+import { Hospital, Contact, Note, UsageRecord, InstalledEquipment, SalesStage, HospitalLevel } from '../types';
 
-// ============== Helper: 帶重試機制的 API 請求 ==============
+// ============== Helper: 簡化的 API 請求（不再每次檢查 session） ==============
 
 const withRetry = async <T>(
   operation: () => Promise<T>,
-  maxRetries: number = 2
+  maxRetries: number = 1
 ): Promise<T> => {
   let lastError: any = null;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // 確保 session 有效
-      const isValid = await ensureValidSession();
-      
-      if (!isValid && attempt === maxRetries) {
-        throw new Error('Session expired. Please refresh the page and log in again.');
-      }
-      
       const result = await operation();
       return result;
       
@@ -35,20 +28,18 @@ const withRetry = async <T>(
       
       if (isAuthError && attempt < maxRetries) {
         console.log(`Auth error on attempt ${attempt + 1}, refreshing session and retrying...`);
-        // 嘗試刷新 session
         await supabase.auth.refreshSession();
-        // 等待一小段時間再重試
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 200));
         continue;
       }
       
-      // 非認證錯誤或已達最大重試次數，直接拋出
+      // 最後一次嘗試失敗，拋出錯誤
       if (attempt === maxRetries) {
+        console.error('Operation failed after retries:', error);
         throw error;
       }
       
-      console.error(`Operation failed on attempt ${attempt + 1}:`, error);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
   
@@ -326,7 +317,7 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<NoteWithUserId
         related_contact_ids: note.relatedContactIds || null,
         attendees: note.attendees || null,
         user_id: user?.id || null,
-        created_at: note.date // 使用選擇的日期
+        created_at: note.date
       });
 
     if (error) {
@@ -334,12 +325,11 @@ export const createNote = async (note: Omit<Note, 'id'>): Promise<NoteWithUserId
       throw error;
     }
 
-    // 不用 RETURNING，直接用我們知道的資料構建返回物件
     const newNote: NoteWithUserId = {
       id: noteId,
       hospitalId: note.hospitalId,
       content: note.content,
-      date: note.date, // 使用選擇的日期
+      date: note.date,
       author: note.author,
       activityType: note.activityType,
       tags: note.tags || [],
@@ -387,7 +377,7 @@ export const updateNote = async (note: Note): Promise<boolean> => {
         next_step_date: note.nextStepDate,
         related_contact_ids: note.relatedContactIds,
         attendees: note.attendees,
-        created_at: note.date // 更新日期
+        created_at: note.date
       })
       .eq('id', note.id);
 

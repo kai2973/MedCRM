@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile, ensureValidSession } from '../lib/supabase';
+import { supabase, Profile } from '../lib/supabase';
 
 // 擴展 Profile 類型
 export interface ExtendedProfile extends Profile {
@@ -27,6 +27,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<ExtendedProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // 追蹤最後一次 visibility check 的時間
+  const lastVisibilityCheck = useRef<number>(0);
+  const VISIBILITY_CHECK_INTERVAL = 30000; // 最少間隔 30 秒
 
   // 載入使用者 profile
   const loadProfile = useCallback(async (userId: string) => {
@@ -108,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           break;
         case 'SIGNED_OUT':
           console.log('User signed out');
-          // 清除 sessionStorage 中的排序設定
           sessionStorage.removeItem('hospitalSortConfig');
           break;
         case 'USER_UPDATED':
@@ -124,24 +127,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadProfile]);
 
-  // 定期檢查並刷新 session（每 4 分鐘）
+  // 定期檢查並刷新 session（每 10 分鐘，而不是 4 分鐘）
   useEffect(() => {
     if (!session) return;
 
     const checkAndRefreshSession = async () => {
-      const isValid = await ensureValidSession();
-      if (!isValid) {
-        console.warn('Session invalid during periodic check, attempting refresh...');
-        await refreshSession();
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (!currentSession) {
+          console.warn('Session lost during periodic check');
+          return;
+        }
+        
+        // 只有當 token 將在 5 分鐘內過期時才刷新
+        const expiresAt = currentSession.expires_at;
+        if (expiresAt) {
+          const now = Math.floor(Date.now() / 1000);
+          const timeUntilExpiry = expiresAt - now;
+          
+          if (timeUntilExpiry < 300) {
+            console.log('Token expiring soon, refreshing...');
+            await refreshSession();
+          }
+        }
+      } catch (error) {
+        console.error('Error in periodic session check:', error);
       }
     };
 
-    // 每 4 分鐘檢查一次
-    const intervalId = setInterval(checkAndRefreshSession, 4 * 60 * 1000);
+    // 每 10 分鐘檢查一次（而不是 4 分鐘）
+    const intervalId = setInterval(checkAndRefreshSession, 10 * 60 * 1000);
 
-    // 當頁面從背景恢復時也檢查
+    // 當頁面從背景恢復時檢查（但有節流）
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        
+        // 節流：最少間隔 30 秒
+        if (now - lastVisibilityCheck.current < VISIBILITY_CHECK_INTERVAL) {
+          return;
+        }
+        
+        lastVisibilityCheck.current = now;
         console.log('Page became visible, checking session...');
         checkAndRefreshSession();
       }
@@ -200,7 +228,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 登出
   const signOut = async () => {
-    // 清除 sessionStorage 中的排序設定
     sessionStorage.removeItem('hospitalSortConfig');
     
     await supabase.auth.signOut();
@@ -214,9 +241,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     try {
-      // 確保 session 有效
-      await ensureValidSession();
-      
       const { error } = await supabase
         .from('profiles')
         .update(updates)
