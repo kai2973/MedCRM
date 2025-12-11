@@ -114,6 +114,8 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [showSidePanel, setShowSidePanel] = useState(true);
   const [unvisitedDaysThreshold, setUnvisitedDaysThreshold] = useState(30);
+  // 手機版：點擊日期時顯示的 Modal
+  const [showMobileDayModal, setShowMobileDayModal] = useState(false);
 
   const getHospitalName = (hospitalId: string): string => {
     const hospital = hospitals.find(h => h.id === hospitalId);
@@ -460,7 +462,7 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
   };
 
   const navigateToHospital = (hospitalId: string) => {
-    navigate(`/hospital/${hospitalId}`);
+    navigate(`/hospitals/${hospitalId}`);
   };
 
   const renderSentimentIcon = (sentiment: string | undefined, size = 14) => {
@@ -471,11 +473,20 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
     }
   };
 
+  // 手機版點擊日期
+  const handleMobileDateClick = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    // 在手機上顯示 modal
+    if (window.innerWidth < 1024) {
+      setShowMobileDayModal(true);
+    }
+  };
+
   const renderMonthView = () => (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="grid grid-cols-7 border-b border-slate-200">
         {WEEKDAYS.map(day => (
-          <div key={day} className="text-center text-sm font-semibold text-slate-500 py-3">
+          <div key={day} className="text-center text-xs lg:text-sm font-semibold text-slate-500 py-2 lg:py-3">
             {day}
           </div>
         ))}
@@ -493,28 +504,36 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           return (
             <div
               key={index}
-              onClick={() => setSelectedDate(dateStr)}
+              onClick={() => handleMobileDateClick(dateStr)}
               className={`
-                border-r border-b border-slate-200 p-1.5 lg:p-2 cursor-pointer transition-all relative overflow-hidden
+                border-r border-b border-slate-200 p-1 lg:p-2 cursor-pointer transition-all relative overflow-hidden
                 ${day.isCurrentMonth ? heatmapColor || 'bg-white' : 'bg-slate-50/50'}
                 ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''}
                 hover:bg-blue-50/50
               `}
             >
               {(hasOverdueTodo || hasDueSoonTodo) && (
-                <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${hasOverdueTodo ? 'bg-red-500' : 'bg-amber-500'}`} />
+                <div className={`absolute top-0.5 right-0.5 lg:top-1 lg:right-1 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${hasOverdueTodo ? 'bg-red-500' : 'bg-amber-500'}`} />
               )}
               
               <div className={`
-                text-sm font-medium mb-1
-                ${isToday ? 'w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center' : ''}
+                text-xs lg:text-sm font-medium mb-0.5 lg:mb-1
+                ${isToday ? 'w-5 h-5 lg:w-7 lg:h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] lg:text-sm' : ''}
                 ${!isToday && day.isCurrentMonth ? 'text-slate-900' : ''}
                 ${!isToday && !day.isCurrentMonth ? 'text-slate-400' : ''}
               `}>
                 {day.date.getDate()}
               </div>
               
-              <div className="space-y-0.5">
+              {/* 手機版只顯示活動數量 */}
+              <div className="lg:hidden">
+                {day.events.length > 0 && (
+                  <div className="text-[10px] text-blue-600 font-medium">{day.events.length}項</div>
+                )}
+              </div>
+              
+              {/* 桌面版顯示活動詳情 */}
+              <div className="hidden lg:block space-y-0.5">
                 {day.events.slice(0, 3).map((event, i) => (
                   <div
                     key={i}
@@ -550,13 +569,13 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           return (
             <div
               key={i}
-              onClick={() => setSelectedDate(dateStr)}
-              className={`text-center py-3 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
+              onClick={() => handleMobileDateClick(dateStr)}
+              className={`text-center py-2 lg:py-3 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
             >
-              <div className="text-sm text-slate-500">{WEEKDAYS[i]}</div>
+              <div className="text-xs lg:text-sm text-slate-500">{WEEKDAYS[i]}</div>
               <div className={`
-                text-lg font-bold mt-1 mx-auto
-                ${isToday ? 'w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center' : 'text-slate-900'}
+                text-sm lg:text-lg font-bold mt-0.5 lg:mt-1 mx-auto
+                ${isToday ? 'w-6 h-6 lg:w-8 lg:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs lg:text-base' : 'text-slate-900'}
               `}>
                 {day.date.getDate()}
               </div>
@@ -575,14 +594,24 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           return (
             <div
               key={i}
-              onClick={() => setSelectedDate(dateStr)}
-              className={`p-2 overflow-auto cursor-pointer relative ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/50'}`}
+              onClick={() => handleMobileDateClick(dateStr)}
+              className={`p-1 lg:p-2 overflow-auto cursor-pointer relative ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/50'}`}
             >
               {(hasOverdueTodo || hasDueSoonTodo) && (
-                <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${hasOverdueTodo ? 'bg-red-500' : 'bg-amber-500'}`} />
+                <div className={`absolute top-1 right-1 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${hasOverdueTodo ? 'bg-red-500' : 'bg-amber-500'}`} />
               )}
               
-              <div className="space-y-2">
+              {/* 手機版只顯示數量 */}
+              <div className="lg:hidden text-center py-2">
+                {day.events.length > 0 ? (
+                  <span className="text-xs text-blue-600 font-medium">{day.events.length}</span>
+                ) : (
+                  <span className="text-xs text-slate-300">-</span>
+                )}
+              </div>
+              
+              {/* 桌面版顯示詳情 */}
+              <div className="hidden lg:block space-y-2">
                 {day.events.map((event, j) => (
                   <div
                     key={j}
@@ -685,51 +714,124 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
     </div>
   );
 
+  // 手機版日期詳情 Modal
+  const renderMobileDayModal = () => {
+    if (!showMobileDayModal || !selectedDate) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:hidden">
+        <div className="bg-white w-full rounded-t-2xl max-h-[80vh] overflow-hidden flex flex-col animate-slide-up">
+          <div className="flex items-center justify-between p-4 border-b border-slate-200 shrink-0">
+            <h3 className="font-bold text-slate-900">
+              {new Date(selectedDate + 'T00:00:00').toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' })}
+            </h3>
+            <button onClick={() => setShowMobileDayModal(false)} className="p-2 text-slate-400 hover:text-slate-600">
+              <X size={20} />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-auto p-4">
+            {selectedDateTodos.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">待辦事項</h4>
+                <div className="space-y-2">
+                  {selectedDateTodos.map(todo => (
+                    <div
+                      key={todo.id}
+                      onClick={() => { navigateToHospital(todo.hospitalId); setShowMobileDayModal(false); }}
+                      className={`p-3 rounded-xl border cursor-pointer ${
+                        todo.isOverdue ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {todo.isOverdue ? <AlertCircle size={14} className="text-red-500" /> : <Clock size={14} className="text-amber-500" />}
+                        <span className="font-medium text-slate-900 text-sm">{todo.hospitalName}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 ml-5">{todo.nextStep}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {selectedDateEvents.length === 0 && selectedDateTodos.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">
+                <CalendarIcon size={32} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">這天沒有活動記錄</p>
+              </div>
+            ) : selectedDateEvents.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">活動記錄</h4>
+                <div className="space-y-2">
+                  {selectedDateEvents.map(event => (
+                    <div
+                      key={event.id}
+                      onClick={() => { navigateToHospital(event.hospitalId); setShowMobileDayModal(false); }}
+                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-slate-900 text-sm">{event.hospitalName}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${ACTIVITY_COLORS[event.activityType] || ACTIVITY_COLORS['其他']}`}>
+                          {event.activityType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 line-clamp-2">{event.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 lg:p-6 h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-3 md:space-y-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-3 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">行事曆</h1>
-          <p className="text-slate-500 text-sm mt-1">查看拜訪記錄、待辦事項與統計。</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight">行事曆</h1>
+          <p className="text-slate-500 text-xs lg:text-sm mt-1">查看拜訪記錄、待辦事項與統計。</p>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           {/* 視圖切換 */}
           <div className="flex bg-slate-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('month')}
-              className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+              className={`px-2 lg:px-2.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'month' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <LayoutGrid size={16} />
+              <LayoutGrid size={14} />
               <span className="hidden sm:inline">月</span>
             </button>
             <button
               onClick={() => setViewMode('week')}
-              className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+              className={`px-2 lg:px-2.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Rows3 size={16} />
+              <Rows3 size={14} />
               <span className="hidden sm:inline">週</span>
             </button>
             <button
               onClick={() => setViewMode('day')}
-              className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+              className={`px-2 lg:px-2.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'day' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Square size={16} />
+              <Square size={14} />
               <span className="hidden sm:inline">日</span>
             </button>
           </div>
 
-          {/* 側邊面板切換 */}
+          {/* 側邊面板切換 - 只在桌面版顯示 */}
           <button
             onClick={() => setShowSidePanel(!showSidePanel)}
-            className={`p-2 rounded-lg border transition-colors ${
+            className={`hidden lg:flex p-2 rounded-lg border transition-colors ${
               showSidePanel ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
             title={showSidePanel ? '隱藏側邊面板' : '顯示側邊面板'}
@@ -742,7 +844,7 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
             <div className="relative">
               <button
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg border font-medium transition-colors ${
+                className={`flex items-center space-x-1.5 px-2 lg:px-3 py-2 rounded-lg border font-medium transition-colors ${
                   selectedUserId !== 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -778,7 +880,7 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-all"
+              className="flex items-center space-x-1.5 px-2 lg:px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-all"
             >
               <Download size={16} />
               <span className="hidden sm:inline text-sm">匯出</span>
@@ -811,79 +913,79 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
         </div>
       </div>
 
-      {/* 月度統計卡片 */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+      {/* 月度統計卡片 - 手機版 2x2 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 mb-4">
+        <div className="bg-white rounded-xl p-2 lg:p-3 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">本月活動</p>
-              <p className="text-xl font-bold text-slate-900">{monthlyStats.totalActivities}</p>
+              <p className="text-[10px] lg:text-xs text-slate-500">本月活動</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900">{monthlyStats.totalActivities}</p>
             </div>
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <CalendarIcon size={16} className="text-blue-600" />
+            <div className="w-7 h-7 lg:w-8 lg:h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <CalendarIcon size={14} className="text-blue-600" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-xl p-2 lg:p-3 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">涵蓋醫院</p>
-              <p className="text-xl font-bold text-slate-900">{monthlyStats.uniqueHospitals}</p>
+              <p className="text-[10px] lg:text-xs text-slate-500">涵蓋醫院</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900">{monthlyStats.uniqueHospitals}</p>
             </div>
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Building2 size={16} className="text-purple-600" />
+            <div className="w-7 h-7 lg:w-8 lg:h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Building2 size={14} className="text-purple-600" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-xl p-2 lg:p-3 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">待辦事項</p>
-              <p className="text-xl font-bold text-slate-900">
+              <p className="text-[10px] lg:text-xs text-slate-500">待辦事項</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900">
                 {todoItems.length}
                 {todoItems.filter(t => t.isOverdue).length > 0 && (
-                  <span className="text-xs text-red-500 ml-1">({todoItems.filter(t => t.isOverdue).length})</span>
+                  <span className="text-[10px] lg:text-xs text-red-500 ml-1">({todoItems.filter(t => t.isOverdue).length})</span>
                 )}
               </p>
             </div>
-            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Target size={16} className="text-amber-600" />
+            <div className="w-7 h-7 lg:w-8 lg:h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+              <Target size={14} className="text-amber-600" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-xl p-2 lg:p-3 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">情緒分布</p>
-              <div className="flex items-center space-x-1.5 mt-0.5">
-                <div className="flex items-center"><Smile size={14} className="text-emerald-500" /><span className="text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.positive}</span></div>
-                <div className="flex items-center"><Meh size={14} className="text-slate-400" /><span className="text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.neutral}</span></div>
-                <div className="flex items-center"><Frown size={14} className="text-red-500" /><span className="text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.negative}</span></div>
+              <p className="text-[10px] lg:text-xs text-slate-500">情緒分布</p>
+              <div className="flex items-center space-x-1 lg:space-x-1.5 mt-0.5">
+                <div className="flex items-center"><Smile size={12} className="text-emerald-500" /><span className="text-xs lg:text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.positive}</span></div>
+                <div className="flex items-center"><Meh size={12} className="text-slate-400" /><span className="text-xs lg:text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.neutral}</span></div>
+                <div className="flex items-center"><Frown size={12} className="text-red-500" /><span className="text-xs lg:text-sm font-medium ml-0.5">{monthlyStats.sentimentBreakdown.negative}</span></div>
               </div>
             </div>
-            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <TrendingUp size={16} className="text-emerald-600" />
+            <div className="w-7 h-7 lg:w-8 lg:h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <TrendingUp size={14} className="text-emerald-600" />
             </div>
           </div>
         </div>
       </div>
 
       {/* 主要內容區 */}
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
         {/* 日曆主體 */}
         <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-w-0">
           {/* 導航列 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
-            <div className="flex items-center space-x-3">
-              <h2 className="text-lg font-bold text-slate-900">{formatDateHeader()}</h2>
-              <button onClick={goToToday} className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50">今天</button>
+          <div className="flex items-center justify-between px-3 lg:px-4 py-2 lg:py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+            <div className="flex items-center space-x-2 lg:space-x-3">
+              <h2 className="text-sm lg:text-lg font-bold text-slate-900">{formatDateHeader()}</h2>
+              <button onClick={goToToday} className="text-xs lg:text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50">今天</button>
             </div>
             <div className="flex items-center space-x-1">
-              <button onClick={navigate_prev} className="p-2 hover:bg-slate-200 rounded-lg transition-colors"><ChevronLeft size={20} className="text-slate-600" /></button>
-              <button onClick={navigate_next} className="p-2 hover:bg-slate-200 rounded-lg transition-colors"><ChevronRight size={20} className="text-slate-600" /></button>
+              <button onClick={navigate_prev} className="p-1.5 lg:p-2 hover:bg-slate-200 rounded-lg transition-colors"><ChevronLeft size={18} className="text-slate-600" /></button>
+              <button onClick={navigate_next} className="p-1.5 lg:p-2 hover:bg-slate-200 rounded-lg transition-colors"><ChevronRight size={18} className="text-slate-600" /></button>
             </div>
           </div>
 
@@ -892,9 +994,9 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           {viewMode === 'day' && renderDayView()}
         </div>
 
-        {/* 側邊面板 */}
+        {/* 側邊面板 - 只在桌面版顯示 */}
         {showSidePanel && (
-          <div className="w-72 space-y-3 overflow-auto shrink-0">
+          <div className="hidden lg:block w-72 space-y-3 overflow-auto shrink-0">
             {viewMode !== 'day' && selectedDate && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -1024,6 +1126,24 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           </div>
         )}
       </div>
+      
+      {/* 手機版日期詳情 Modal */}
+      {renderMobileDayModal()}
+      
+      {/* 動畫樣式 */}
+      <style>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
