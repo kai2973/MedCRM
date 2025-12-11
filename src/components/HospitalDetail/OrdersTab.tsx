@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    ShoppingCart, X, Check, Edit
+    ShoppingCart, X, Check, Edit, Trash2, AlertTriangle
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -13,6 +13,7 @@ interface OrdersTabProps {
     usageHistory: UsageRecord[];
     onAddUsageRecord: (record: UsageRecord) => void;
     onUpdateUsageRecord: (record: UsageRecord) => void;
+    onDeleteUsageRecord: (recordId: string) => void;
 }
 
 // 自訂下拉箭頭元件
@@ -34,7 +35,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
     hospital,
     usageHistory,
     onAddUsageRecord,
-    onUpdateUsageRecord
+    onUpdateUsageRecord,
+    onDeleteUsageRecord
 }) => {
     // Order Logging State
     const [isLoggingOrder, setIsLoggingOrder] = useState(false);
@@ -45,6 +47,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
         quantity: '10',
         type: '訂單' as UsageType
     });
+
+    // 刪除確認彈窗狀態
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<UsageRecord | null>(null);
 
     const handleSaveOrder = () => {
         const quantity = parseInt(orderForm.quantity) || 0;
@@ -75,8 +81,67 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
         }
     };
 
+    const handleDeleteClick = (record: UsageRecord) => {
+        setOrderToDelete(record);
+        setShowDeleteModal(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (orderToDelete) {
+            onDeleteUsageRecord(orderToDelete.id);
+            setShowDeleteModal(false);
+            setOrderToDelete(null);
+        }
+    };
+
     return (
         <div className="space-y-8 animate-fade-in">
+            {/* 刪除確認彈窗 */}
+            {showDeleteModal && orderToDelete && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                <AlertTriangle size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">刪除訂單記錄</h3>
+                                <p className="text-sm text-slate-500">此操作無法復原</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 rounded-xl p-4 mb-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-medium text-slate-700">{orderToDelete.productCode}</span>
+                                <span className="text-xs text-slate-400">• {orderToDelete.date}</span>
+                            </div>
+                            <p className="text-sm text-slate-600">
+                                數量: <span className="font-bold">{orderToDelete.quantity}</span>
+                                <span className="ml-2">類型: {orderToDelete.type || '訂單'}</span>
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setOrderToDelete(null);
+                                }}
+                                className="flex-1 px-4 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className="flex-1 px-4 py-2.5 text-white bg-red-600 hover:bg-red-700 rounded-xl font-medium transition-colors"
+                            >
+                                確認刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Action Header */}
             <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div>
@@ -273,7 +338,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                                 const product = PRODUCTS.find(p => p.code === record.productCode);
                                 const isSample = record.type === '樣品';
                                 return (
-                                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors group">
                                         <td className="px-6 py-4 text-sm font-medium text-slate-900">{record.date}</td>
                                         <td className="px-6 py-4 text-sm">
                                             <span className="font-bold text-slate-800 mr-2 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{record.productCode}</span>
@@ -286,12 +351,22 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={() => setEditingOrder(record)}
-                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button
+                                                    onClick={() => setEditingOrder(record)}
+                                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="編輯"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteClick(record)}
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="刪除"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );

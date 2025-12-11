@@ -501,6 +501,22 @@ export const updateUsageRecord = async (record: UsageRecord): Promise<boolean> =
   });
 };
 
+export const deleteUsageRecord = async (recordId: string): Promise<boolean> => {
+  return withRetry(async () => {
+    const { error } = await supabase
+      .from('usage_records')
+      .delete()
+      .eq('id', recordId);
+
+    if (error) {
+      console.error('Error deleting usage record:', error);
+      throw error;
+    }
+
+    return true;
+  });
+};
+
 // ============== 已安裝設備 CRUD ==============
 
 export const createInstalledEquipment = async (

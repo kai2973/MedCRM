@@ -24,6 +24,7 @@ import {
   updateContact,
   createUsageRecord,
   updateUsageRecord,
+  deleteUsageRecord,
   createInstalledEquipment,
   updateInstalledEquipment,
   deleteInstalledEquipment,
@@ -45,6 +46,7 @@ const HospitalDetailWrapper: React.FC<{
   onAddContact: (contact: Contact) => void;
   onAddUsageRecord: (record: UsageRecord) => void;
   onUpdateUsageRecord: (record: UsageRecord) => void;
+  onDeleteUsageRecord: (recordId: string) => void;
   onAddEquipment: (equipment: InstalledEquipment) => void;
   onUpdateEquipment: (equipment: InstalledEquipment) => void;
   onDeleteEquipment: (equipmentId: string) => void;
@@ -61,6 +63,7 @@ const HospitalDetailWrapper: React.FC<{
   onAddContact,
   onAddUsageRecord,
   onUpdateUsageRecord,
+  onDeleteUsageRecord,
   onAddEquipment,
   onUpdateEquipment,
   onDeleteEquipment
@@ -104,6 +107,7 @@ const HospitalDetailWrapper: React.FC<{
       onAddContact={onAddContact}
       onAddUsageRecord={onAddUsageRecord}
       onUpdateUsageRecord={onUpdateUsageRecord}
+      onDeleteUsageRecord={onDeleteUsageRecord}
       onAddEquipment={onAddEquipment}
       onUpdateEquipment={onUpdateEquipment}
       onDeleteEquipment={onDeleteEquipment}
@@ -339,6 +343,18 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // 刪除使用記錄 (樂觀更新)
+  const handleDeleteUsageRecord = async (recordId: string) => {
+    // 先更新 UI
+    setUsageRecords(prev => prev.filter(u => u.id !== recordId));
+
+    const success = await deleteUsageRecord(recordId);
+    if (!success) {
+      // 失敗時重新載入
+      loadData(false);
+    }
+  };
+
   // 新增聯絡人
   const handleAddContact = async (newContact: Contact) => {
     const created = await createContact({
@@ -477,6 +493,7 @@ const AppContent: React.FC = () => {
               onAddContact={handleAddContact}
               onAddUsageRecord={handleAddUsageRecord}
               onUpdateUsageRecord={handleUpdateUsageRecord}
+              onDeleteUsageRecord={handleDeleteUsageRecord}
               onAddEquipment={handleAddEquipment}
               onUpdateEquipment={handleUpdateEquipment}
               onDeleteEquipment={handleDeleteEquipment}

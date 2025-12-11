@@ -26,6 +26,7 @@ interface HospitalDetailProps {
     onAddContact: (contact: Contact) => void;
     onAddUsageRecord: (record: UsageRecord) => void;
     onUpdateUsageRecord: (record: UsageRecord) => void;
+    onDeleteUsageRecord: (recordId: string) => void;
     onAddEquipment: (equipment: InstalledEquipment) => Promise<void> | void;
     onUpdateEquipment: (equipment: InstalledEquipment) => Promise<void> | void;
     onDeleteEquipment: (equipmentId: string) => Promise<void> | void;
@@ -45,6 +46,7 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
     onAddContact,
     onAddUsageRecord,
     onUpdateUsageRecord,
+    onDeleteUsageRecord,
     onAddEquipment,
     onUpdateEquipment,
     onDeleteEquipment,
@@ -138,7 +140,7 @@ const HospitalDetail: React.FC<HospitalDetailProps> = ({
                 </div>
 
                 {activeTab === 'overview' && <OverviewTab hospital={hospital} contacts={contacts} usageHistory={usageHistory} onAddEquipment={onAddEquipment} onUpdateEquipment={onUpdateEquipment} onDeleteEquipment={onDeleteEquipment} onUpdateHospital={onUpdateHospital} />}
-                {activeTab === 'orders' && <OrdersTab hospital={hospital} usageHistory={usageHistory} onAddUsageRecord={onAddUsageRecord} onUpdateUsageRecord={onUpdateUsageRecord} />}
+                {activeTab === 'orders' && <OrdersTab hospital={hospital} usageHistory={usageHistory} onAddUsageRecord={onAddUsageRecord} onUpdateUsageRecord={onUpdateUsageRecord} onDeleteUsageRecord={onDeleteUsageRecord} />}
                 {activeTab === 'contacts' && <ContactsTab hospital={hospital} contacts={contacts} onAddContact={onAddContact} onUpdateContact={onUpdateContact} />}
                 {activeTab === 'notes' && <NotesTab hospital={hospital} notes={notes} contacts={contacts} onAddNote={onAddNote} onUpdateNote={onUpdateNote} onDeleteNote={onDeleteNote} onAddContact={onAddContact} />}
             </div>
