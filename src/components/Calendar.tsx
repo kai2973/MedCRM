@@ -156,19 +156,6 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // 切換選單時關閉另一個選單
-  const toggleExportMenu = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowFilterMenu(false);
-    setShowExportMenu(!showExportMenu);
-  };
-
-  const toggleFilterMenu = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowExportMenu(false);
-    setShowFilterMenu(!showFilterMenu);
-  };
-
   const getHospitalName = (hospitalId: string): string => {
     const hospital = hospitals.find(h => h.id === hospitalId);
     return hospital?.name || '未知醫院';
