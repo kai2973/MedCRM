@@ -117,6 +117,58 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
   // 手機版：點擊日期時顯示的 Modal
   const [showMobileDayModal, setShowMobileDayModal] = useState(false);
 
+  // 點擊頁面其他地方時關閉所有選單
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown]')) {
+        setShowExportMenu(false);
+        setShowFilterMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // 切換選單時關閉另一個選單
+  const toggleExportMenu = () => {
+    setShowFilterMenu(false);
+    setShowExportMenu(!showExportMenu);
+  };
+
+  const toggleFilterMenu = () => {
+    setShowExportMenu(false);
+    setShowFilterMenu(!showFilterMenu);
+  };
+
+  // 點擊頁面其他地方時關閉所有選單
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown]')) {
+        setShowExportMenu(false);
+        setShowFilterMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // 切換選單時關閉另一個選單
+  const toggleExportMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFilterMenu(false);
+    setShowExportMenu(!showExportMenu);
+  };
+
+  const toggleFilterMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowExportMenu(false);
+    setShowFilterMenu(!showFilterMenu);
+  };
+
   const getHospitalName = (hospitalId: string): string => {
     const hospital = hospitals.find(h => h.id === hospitalId);
     return hospital?.name || '未知醫院';
@@ -841,9 +893,9 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
 
           {/* Manager/Admin 篩選器 */}
           {isManagerOrAdmin && allProfiles.length > 0 && (
-            <div className="relative">
+            <div className="relative" data-dropdown>
               <button
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                onClick={toggleFilterMenu}
                 className={`flex items-center space-x-1.5 px-2 lg:px-3 py-2 rounded-lg border font-medium transition-colors ${
                   selectedUserId !== 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
@@ -855,7 +907,7 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
               </button>
               
               {showFilterMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 z-50 py-1 max-h-64 overflow-auto">
+                <div className="fixed sm:absolute right-4 sm:right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] py-1 max-h-64 overflow-auto">
                   <button
                     onClick={() => { setSelectedUserId('all'); setShowFilterMenu(false); }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 ${selectedUserId === 'all' ? 'text-blue-600 font-medium' : 'text-slate-700'}`}
@@ -877,9 +929,9 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
           )}
           
           {/* 匯出按鈕 */}
-          <div className="relative">
+          <div className="relative" data-dropdown>
             <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
+              onClick={toggleExportMenu}
               className="flex items-center space-x-1.5 px-2 lg:px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-all"
             >
               <Download size={16} />
@@ -887,7 +939,7 @@ const Calendar: React.FC<CalendarProps> = ({ notes, hospitals, allProfiles = [] 
             </button>
             
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border border-slate-200 z-50 py-1">
+              <div className="fixed sm:absolute right-4 sm:right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] py-1">
                 <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase">本週</div>
                 <button onClick={() => exportToExcel('week')} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2">
                   <FileSpreadsheet size={14} className="text-green-600" />
