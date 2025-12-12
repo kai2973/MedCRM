@@ -165,24 +165,24 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           const isTooltipOpen = activeTooltip === idx;
 
           return (
-            <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200/60 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} bg-opacity-50 group-hover:bg-opacity-100 transition-all`}>
-                  <Icon className="w-6 h-6" />
+            <div key={idx} className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-200/60 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+              <div className="flex justify-between items-start mb-2 sm:mb-4">
+                <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color} bg-opacity-50 group-hover:bg-opacity-100 transition-all`}>
+                  <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${stat.trend.includes('+') ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                <span className={`text-[10px] sm:text-xs font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full ${stat.trend.includes('+') ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
                   {stat.trend}
                 </span>
               </div>
               <div>
-                <div className="flex items-center gap-1 mb-1 relative">
-                  <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                <div className="flex items-center gap-1 mb-0.5 sm:mb-1 relative">
+                  <p className="text-xs sm:text-sm font-medium text-slate-500">{stat.label}</p>
                   {/* @ts-ignore - info property exists in our new stats object */}
                   {stat.info && (
                     <div className="relative">
@@ -193,7 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
                         }}
                         className="text-slate-400 hover:text-blue-500 transition-colors p-0.5 rounded-full hover:bg-blue-50 focus:outline-none"
                       >
-                        <Info size={14} />
+                        <Info size={12} className="sm:w-3.5 sm:h-3.5" />
                       </button>
 
                       {isTooltipOpen && (
@@ -205,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
                     </div>
                   )}
                 </div>
-                <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                <p className="text-xl sm:text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
               </div>
             </div>
           );
