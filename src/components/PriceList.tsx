@@ -14,7 +14,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Info
+  Info,
+  AlertCircle
 } from 'lucide-react';
 import { Hospital, Region, HospitalLevel, ProductType } from '../types';
 import { PRODUCTS } from '../constants';
@@ -37,13 +38,20 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
     level: 'All'
   });
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<string>('all');
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
 
   // 取得耗材產品列表
   const consumableProducts = useMemo(() => 
     PRODUCTS.filter(p => p.type === ProductType.CONSUMABLE),
     []
   );
+
+  // 預設選擇第一個耗材
+  React.useEffect(() => {
+    if (!selectedProduct && consumableProducts.length > 0) {
+      setSelectedProduct(consumableProducts[0].code);
+    }
+  }, [consumableProducts, selectedProduct]);
 
   // 彙整所有價格資料
   const priceData = useMemo(() => {
@@ -87,6 +95,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       avg: number;
       count: number;
       prices: number[];
+      hospitalsWithPrice: Set<string>;
     }> = {};
 
     priceData.forEach(item => {
@@ -96,13 +105,15 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           max: item.price,
           avg: 0,
           count: 0,
-          prices: []
+          prices: [],
+          hospitalsWithPrice: new Set()
         };
       }
       stats[item.productCode].min = Math.min(stats[item.productCode].min, item.price);
       stats[item.productCode].max = Math.max(stats[item.productCode].max, item.price);
       stats[item.productCode].prices.push(item.price);
       stats[item.productCode].count++;
+      stats[item.productCode].hospitalsWithPrice.add(item.hospitalId);
     });
 
     // 計算平均
@@ -113,6 +124,13 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
 
     return stats;
   }, [priceData]);
+
+  // 計算未建立價格的醫院數
+  const getMissingPriceCount = (productCode: string): number => {
+    const stats = productStats[productCode];
+    const hospitalsWithPrice = stats?.hospitalsWithPrice?.size || 0;
+    return hospitals.length - hospitalsWithPrice;
+  };
 
   // 篩選後的價格資料
   const filteredPriceData = useMemo(() => {
@@ -138,7 +156,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       }
 
       // 產品篩選
-      if (selectedProduct !== 'all' && item.productCode !== selectedProduct) {
+      if (selectedProduct && item.productCode !== selectedProduct) {
         return false;
       }
 
@@ -230,7 +248,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
   // 重置篩選
   const resetFilters = () => {
     setActiveFilters({ region: 'All', level: 'All' });
-    setSelectedProduct('all');
     setSearchTerm('');
   };
 
@@ -256,15 +273,17 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
     return consumableProducts.filter(p => codes.has(p.code));
   }, [hospitals, consumableProducts]);
 
-  const hasFilters = activeFilters.region !== 'All' || activeFilters.level !== 'All' || selectedProduct !== 'all';
+  const hasFilters = activeFilters.region !== 'All' || activeFilters.level !== 'All';
+  const currentStats = selectedProduct ? productStats[selectedProduct] : null;
+  const missingCount = selectedProduct ? getMissingPriceCount(selectedProduct) : 0;
 
   return (
-    <div className="p-6 lg:p-10 max-w-[1600px] mx-auto h-full flex flex-col relative overflow-hidden">
+    <div className="p-4 md:p-6 lg:p-10 max-w-[1600px] mx-auto h-full flex flex-col relative overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 space-y-4 md:space-y-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-4 md:mb-8 space-y-2 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">價格清單</h1>
-          <p className="text-slate-500 mt-2">查看各醫院的耗材價格與統計分析。</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">價格清單</h1>
+          <p className="text-slate-500 text-sm md:text-base mt-1">查看各醫院的耗材價格與統計分析。</p>
         </div>
         
         {/* View Mode Toggle - Desktop */}
@@ -292,76 +311,136 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* Mobile: Product Selector + Stats Bar */}
+      <div className="md:hidden mb-4">
+        {/* Product Tabs */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+          {consumableProducts.map(p => (
+            <button
+              key={p.code}
+              onClick={() => setSelectedProduct(p.code)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                selectedProduct === p.code
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 border border-slate-200'
+              }`}
+            >
+              {p.code}
+            </button>
+          ))}
+        </div>
+
+        {/* Stats for Selected Product */}
+        {currentStats ? (
+          <div className="mt-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500 font-medium">最低</p>
+                  <p className="text-sm font-bold text-emerald-600">{formatCurrency(currentStats.min)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500 font-medium">平均</p>
+                  <p className="text-sm font-bold text-slate-900">{formatCurrency(currentStats.avg)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500 font-medium">最高</p>
+                  <p className="text-sm font-bold text-amber-600">{formatCurrency(currentStats.max)}</p>
+                </div>
+              </div>
+              {missingCount > 0 && (
+                <div className="flex items-center gap-1.5 bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">
+                  <AlertCircle size={12} />
+                  <span className="text-xs font-medium">{missingCount} 家未建立</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+            <p className="text-sm text-slate-500">尚無價格資料</p>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Stats Cards */}
+      <div className="hidden md:grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-              <Building2 size={20} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">有價格資料</p>
-              <p className="text-xl font-bold text-slate-900">
-                {new Set(priceData.map(d => d.hospitalId)).size}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <Package size={20} />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-medium">耗材種類</p>
-              <p className="text-xl font-bold text-slate-900">
-                {Object.keys(productStats).length}
-              </p>
+              <p className="text-xs text-slate-500 font-medium">選擇耗材</p>
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="text-lg font-bold text-slate-900 bg-transparent border-none p-0 focus:outline-none cursor-pointer"
+              >
+                {consumableProducts.map(p => (
+                  <option key={p.code} value={p.code}>{p.code}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
-              <DollarSign size={20} />
+        
+        {currentStats ? (
+          <>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <TrendingDown size={20} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">最低價</p>
+                  <p className="text-xl font-bold text-emerald-600">{formatCurrency(currentStats.min)}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">價格紀錄</p>
-              <p className="text-xl font-bold text-slate-900">{priceData.length}</p>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">最高價</p>
+                  <p className="text-xl font-bold text-amber-600">{formatCurrency(currentStats.max)}</p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
-              <TrendingUp size={20} />
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">未建立價格</p>
+                  <p className="text-xl font-bold text-slate-900">
+                    {missingCount} <span className="text-sm font-normal text-slate-400">家醫院</span>
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">平均價差</p>
-              <p className="text-xl font-bold text-slate-900">
-                {Object.keys(productStats).length > 0 
-                  ? Math.round(
-                      Object.values(productStats).reduce((sum, s) => 
-                        sum + ((s.max - s.min) / s.avg * 100), 0
-                      ) / Object.keys(productStats).length
-                    ) + '%'
-                  : '-'
-                }
-              </p>
+          </>
+        ) : (
+          <>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-3 flex items-center justify-center">
+              <p className="text-slate-400">選擇耗材以查看統計</p>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/60 mb-6 transition-all focus-within:ring-2 focus-within:ring-blue-100">
-        <div className="flex gap-3 items-center">
+      <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl shadow-sm border border-slate-200/60 mb-4 md:mb-6">
+        <div className="flex gap-2 md:gap-3 items-center">
           <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
             <input
               type="text"
-              placeholder="搜尋醫院、產品..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
+              placeholder="搜尋醫院..."
+              className="w-full pl-9 pr-3 py-2 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -374,7 +453,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
               onChange={(e) => setSelectedProduct(e.target.value)}
               className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 text-sm min-w-[140px]"
             >
-              <option value="all">所有產品</option>
               {consumableProducts.map(p => (
                 <option key={p.code} value={p.code}>{p.code}</option>
               ))}
@@ -383,13 +461,13 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
 
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`shrink-0 flex items-center justify-center w-11 h-11 md:w-auto md:h-auto md:px-4 md:py-2.5 rounded-xl border font-medium transition-colors ${
+            className={`shrink-0 flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2.5 rounded-lg md:rounded-xl border font-medium transition-colors ${
               isFilterOpen || hasFilters
                 ? 'bg-blue-50 border-blue-200 text-blue-700'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Filter size={18} />
+            <Filter size={16} />
             <span className="hidden md:inline ml-2">篩選</span>
             {hasFilters && (
               <span className="hidden md:flex h-2 w-2 rounded-full bg-blue-600 ml-1 ring-2 ring-white"></span>
@@ -397,42 +475,27 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           </button>
         </div>
 
-        {/* Mobile Product Filter */}
-        <div className="md:hidden mt-3 pt-3 border-t border-slate-100">
-          <select
-            value={selectedProduct}
-            onChange={(e) => setSelectedProduct(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
-          >
-            <option value="all">所有產品</option>
-            {consumableProducts.map(p => (
-              <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
-            ))}
-          </select>
-        </div>
-
         {/* Mobile Sort Bar */}
-        <div className="md:hidden mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="md:hidden mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="text-xs text-slate-500 font-medium shrink-0">排序：</span>
           {([
             { key: 'hospital' as SortKey, label: '醫院' },
-            { key: 'product' as SortKey, label: '產品' },
             { key: 'price' as SortKey, label: '價格' }
           ]).map((item) => (
             <button
               key={item.key}
               onClick={() => handleSort(item.key)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-colors ${
                 sortConfig?.key === item.key
                   ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200'
               }`}
             >
               {item.label}
               {sortConfig?.key === item.key && (
                 sortConfig.direction === 'asc' 
-                  ? <ArrowUp size={12} />
-                  : <ArrowDown size={12} />
+                  ? <ArrowUp size={10} />
+                  : <ArrowDown size={10} />
               )}
             </button>
           ))}
@@ -440,13 +503,13 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
 
         {/* Filter Panel */}
         {isFilterOpen && (
-          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 animate-fade-in">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">區域</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">區域</label>
               <select
                 value={activeFilters.region}
                 onChange={(e) => setActiveFilters(prev => ({ ...prev, region: e.target.value }))}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
               >
                 {['All', ...Object.values(Region)].map(r => (
                   <option key={r} value={r}>{r === 'All' ? '所有區域' : r}</option>
@@ -454,21 +517,21 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">等級</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">等級</label>
               <select
                 value={activeFilters.level}
                 onChange={(e) => setActiveFilters(prev => ({ ...prev, level: e.target.value }))}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
               >
                 {['All', ...Object.values(HospitalLevel)].map(l => (
                   <option key={l} value={l}>{l === 'All' ? '所有等級' : l}</option>
                 ))}
               </select>
             </div>
-            <div className="flex items-end">
+            <div className="col-span-2 md:col-span-1 flex items-end">
               <button
                 onClick={resetFilters}
-                className="text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg transition-colors w-full md:w-auto"
+                className="text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors w-full md:w-auto"
               >
                 重置篩選
               </button>
@@ -476,51 +539,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           </div>
         )}
       </div>
-
-      {/* Product Stats Summary - Show when a specific product is selected */}
-      {selectedProduct !== 'all' && productStats[selectedProduct] && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 md:p-5 rounded-2xl border border-blue-100 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
-                <Package size={24} className="text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900">{selectedProduct}</h3>
-                <p className="text-sm text-slate-500">
-                  {consumableProducts.find(p => p.code === selectedProduct)?.name}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-6">
-              <div className="text-center">
-                <p className="text-xs text-slate-500 font-medium">最低價</p>
-                <p className="text-lg font-bold text-emerald-600">
-                  {formatCurrency(productStats[selectedProduct].min)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 font-medium">平均價</p>
-                <p className="text-lg font-bold text-slate-900">
-                  {formatCurrency(productStats[selectedProduct].avg)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 font-medium">最高價</p>
-                <p className="text-lg font-bold text-amber-600">
-                  {formatCurrency(productStats[selectedProduct].max)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 font-medium">資料筆數</p>
-                <p className="text-lg font-bold text-slate-900">
-                  {productStats[selectedProduct].count}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Desktop Table View (List Mode) */}
       {viewMode === 'list' && (
@@ -537,12 +555,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                   </th>
                   <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">區域</th>
                   <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">等級</th>
-                  <th 
-                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    onClick={() => handleSort('product')}
-                  >
-                    <div className="flex items-center">產品 {getSortIcon('product')}</div>
-                  </th>
                   <th 
                     className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
                     onClick={() => handleSort('price')}
@@ -573,12 +585,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                         <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
                           {item.level}
                         </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div>
-                          <span className="font-medium text-slate-900">{item.productCode}</span>
-                          <p className="text-xs text-slate-400">{item.productName}</p>
-                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`font-bold text-lg ${
@@ -680,7 +686,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       )}
 
       {/* Mobile Card View */}
-      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-3 pb-4">
+      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-2 pb-4">
         {sortedPriceData.length > 0 ? (
           sortedPriceData.map((item, index) => {
             const status = getPriceStatus(item.price, item.productCode);
@@ -691,60 +697,43 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
               <div
                 key={`${item.hospitalId}-${item.productCode}-${index}`}
                 onClick={() => goToHospital(item.hospitalId)}
-                className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 active:scale-[0.98] transition-transform cursor-pointer"
+                className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 active:scale-[0.98] transition-transform cursor-pointer"
               >
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-center">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-900 leading-tight truncate">{item.hospitalName}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.region} · {item.level}</p>
+                    <h3 className="font-bold text-slate-900 truncate">{item.hospitalName}</h3>
+                    <p className="text-xs text-slate-500">{item.region} · {item.level}</p>
                   </div>
-                  <div className="text-right ml-3">
-                    <span className={`text-xl font-bold ${
+                  <div className="text-right ml-3 flex items-center gap-2">
+                    <span className={`text-lg font-bold ${
                       status === 'high' ? 'text-amber-600' :
                       status === 'low' ? 'text-emerald-600' :
                       'text-slate-900'
                     }`}>
                       {formatCurrency(item.price)}
                     </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                      {item.productCode}
-                    </span>
-                    <span className="text-xs text-slate-400 truncate max-w-[120px]">
-                      {item.productName}
-                    </span>
-                  </div>
-                  <div className={`flex items-center gap-1 text-sm font-medium ${
-                    status === 'high' ? 'text-amber-600' :
-                    status === 'low' ? 'text-emerald-600' :
-                    'text-slate-400'
-                  }`}>
-                    {status === 'high' && <TrendingUp size={14} />}
-                    {status === 'low' && <TrendingDown size={14} />}
-                    {status === 'normal' && <Minus size={14} />}
-                    <span>{diffPercent > 0 ? '+' : ''}{diffPercent}%</span>
+                    <div className={`flex items-center text-xs font-medium ${
+                      status === 'high' ? 'text-amber-500' :
+                      status === 'low' ? 'text-emerald-500' :
+                      'text-slate-400'
+                    }`}>
+                      {status === 'high' && <TrendingUp size={12} />}
+                      {status === 'low' && <TrendingDown size={12} />}
+                      {status === 'normal' && <Minus size={12} />}
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="p-16 text-center text-slate-400">
+          <div className="p-8 text-center text-slate-400">
             <div className="flex flex-col items-center justify-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <DollarSign size={24} className="text-slate-300" />
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                <DollarSign size={20} className="text-slate-300" />
               </div>
-              <p className="mb-2 text-lg font-medium text-slate-600">尚無價格資料</p>
-              <p className="text-sm mb-6">請先在各醫院設定耗材價格</p>
-              {hasFilters && (
-                <button onClick={resetFilters} className="text-blue-600 hover:text-blue-700 text-sm font-semibold hover:underline">
-                  清除篩選
-                </button>
-              )}
+              <p className="text-sm font-medium text-slate-600">尚無價格資料</p>
+              <p className="text-xs text-slate-400 mt-1">請先在各醫院設定耗材價格</p>
             </div>
           </div>
         )}
@@ -766,8 +755,8 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
         </div>
       )}
 
-      {/* Info Tooltip for Price Status */}
-      <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10">
+      {/* Info Tooltip for Price Status - Desktop Only */}
+      <div className="hidden md:block fixed bottom-10 right-10">
         <div className="group relative">
           <button className="w-10 h-10 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
             <Info size={18} />
