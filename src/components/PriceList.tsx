@@ -17,7 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { Hospital, Region, HospitalLevel, ProductType } from '../types';
-import { PRODUCTS } from '../data/products';
+import { PRODUCTS } from '../constants';
 
 interface PriceListProps {
   hospitals: Hospital[];
