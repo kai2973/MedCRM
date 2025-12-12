@@ -8,6 +8,7 @@ import HospitalList from './components/HospitalList';
 import HospitalDetail from './components/HospitalDetail';
 import Settings from './components/Settings';
 import Calendar from './components/Calendar';
+import PriceList from './components/PriceList';
 import { Loader } from 'lucide-react';
 import { Hospital, Note, Contact, UsageRecord, SalesStage, InstalledEquipment } from './types';
 import {
@@ -140,6 +141,7 @@ const AppContent: React.FC = () => {
   // 從 URL 取得當前 tab
   const getActiveTabFromPath = (pathname: string): string => {
     if (pathname.startsWith('/hospitals')) return 'hospitals';
+    if (pathname.startsWith('/pricelist')) return 'pricelist';
     if (pathname.startsWith('/calendar')) return 'calendar';
     if (pathname.startsWith('/settings')) return 'settings';
     return 'dashboard';
@@ -453,6 +455,9 @@ const AppContent: React.FC = () => {
       case 'hospitals':
         navigate('/hospitals');
         break;
+      case 'pricelist':
+        navigate('/pricelist');
+        break;
       case 'calendar':
         navigate('/calendar');
         break;
@@ -499,6 +504,10 @@ const AppContent: React.FC = () => {
               onDeleteEquipment={handleDeleteEquipment}
             />
           }
+        />
+        <Route 
+          path="/pricelist" 
+          element={<PriceList hospitals={hospitals} />} 
         />
         <Route 
           path="/calendar" 

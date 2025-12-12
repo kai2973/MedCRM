@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Building2, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X, Loader, Calendar } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Activity, ChevronLeft, ChevronRight, Menu, X, Loader, Calendar, DollarSign } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -17,6 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const navItems = [
     { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
     { id: 'hospitals', label: '醫院列表', icon: Building2 },
+    { id: 'pricelist', label: '價格清單', icon: DollarSign },
     { id: 'calendar', label: '行事曆', icon: Calendar },
   ];
 
