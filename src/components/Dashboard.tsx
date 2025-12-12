@@ -305,13 +305,13 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
         </div>
 
         {/* 產品銷售佔比 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
           <h2 className="text-lg font-bold text-slate-900 mb-6">產品銷售佔比</h2>
-          <div className="h-64">
+          <div className="min-h-[280px] sm:min-h-0 sm:h-64">
             {productMixData.length > 0 ? (
               <div className="w-full h-full flex flex-col sm:flex-row gap-4 items-center">
                 {/* 圓環圖 */}
-                <div className="w-full sm:w-1/2 h-48 sm:h-full flex-shrink-0">
+                <div className="w-full sm:w-1/2 h-44 sm:h-full flex-shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -332,7 +332,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
                   </ResponsiveContainer>
                 </div>
                 {/* 圖例 */}
-                <div className="w-full sm:w-1/2 flex flex-col justify-center space-y-3">
+                <div className="w-full sm:w-1/2 flex flex-col justify-center space-y-2 sm:space-y-3">
                   {productMixData.slice(0, 5).map((item, idx) => (
                     <div key={item.name} className="flex justify-between items-center text-sm group">
                       <div className="flex items-center min-w-0">
