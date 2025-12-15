@@ -14,9 +14,9 @@ interface UserProfile {
 }
 
 const ROLE_LABELS: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  admin: { label: '管理員', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Shield },
-  manager: { label: '經理', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: UserCog },
-  sales: { label: '業務', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: User },
+  admin: { label: '管理員', color: 'bg-purple-50 text-purple-700', icon: Shield },
+  manager: { label: '經理', color: 'bg-blue-50 text-blue-700', icon: UserCog },
+  sales: { label: '業務', color: 'bg-emerald-50 text-emerald-700', icon: User },
 };
 
 const UserManagement: React.FC = () => {
@@ -287,14 +287,14 @@ const UserManagement: React.FC = () => {
       <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200">
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">使用者</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">權限</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">職稱</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">區域</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">操作</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-[40%]">使用者</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-[15%]">權限</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-[18%]">職稱</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-[12%]">區域</th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-[15%]">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -307,32 +307,32 @@ const UserManagement: React.FC = () => {
                   <tr key={user.id} className={`hover:bg-slate-50 transition-colors ${isCurrentUser ? 'bg-blue-50/50' : ''}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                           {user.full_name?.charAt(0) || user.email?.charAt(0) || '?'}
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 truncate">
                             {user.full_name || '未設定'}
                             {isCurrentUser && <span className="ml-2 text-xs text-blue-600">(您)</span>}
                           </p>
-                          <p className="text-sm text-slate-500">{user.email}</p>
+                          <p className="text-sm text-slate-500 truncate">{user.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${roleInfo.color}`}>
-                        <RoleIcon size={12} />
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${roleInfo.color}`}>
+                        <RoleIcon size={11} />
                         <span>{roleInfo.label}</span>
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-4 text-sm text-slate-600 truncate">
                       {user.role || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-4 text-sm text-slate-600">
                       {user.region || '-'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                      <div className="flex items-center justify-end space-x-1">
                         <button
                           onClick={() => startEditUser(user)}
                           className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
