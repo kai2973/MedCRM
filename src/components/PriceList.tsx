@@ -4,12 +4,10 @@ import {
   DollarSign, 
   Search, 
   Filter, 
-  X, 
   ChevronRight, 
   TrendingUp, 
   TrendingDown, 
   Minus,
-  Building2,
   Package,
   ArrowUpDown,
   ArrowUp,
@@ -25,8 +23,23 @@ interface PriceListProps {
 }
 
 type ViewMode = 'matrix' | 'list';
-type SortKey = 'hospital' | 'product' | 'price';
+type SortKey = 'hospital' | 'region' | 'level' | 'price';
 type SortDirection = 'asc' | 'desc';
+
+// 區域排序順序
+const REGION_ORDER: Record<string, number> = {
+  [Region.NORTH]: 1,
+  [Region.CENTRAL]: 2,
+  [Region.SOUTH]: 3,
+  [Region.EAST]: 4
+};
+
+// 等級排序順序
+const LEVEL_ORDER: Record<string, number> = {
+  [HospitalLevel.MEDICAL_CENTER]: 1,
+  [HospitalLevel.REGIONAL]: 2,
+  [HospitalLevel.LOCAL]: 3
+};
 
 const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
   const navigate = useNavigate();
@@ -174,8 +187,11 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
         case 'hospital':
           comparison = a.hospitalName.localeCompare(b.hospitalName, 'zh-TW');
           break;
-        case 'product':
-          comparison = a.productCode.localeCompare(b.productCode);
+        case 'region':
+          comparison = (REGION_ORDER[a.region] || 99) - (REGION_ORDER[b.region] || 99);
+          break;
+        case 'level':
+          comparison = (LEVEL_ORDER[a.level] || 99) - (LEVEL_ORDER[b.level] || 99);
           break;
         case 'price':
           comparison = a.price - b.price;
@@ -185,14 +201,14 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
     });
   }, [filteredPriceData, sortConfig]);
 
-  // 矩陣視圖資料
+  // 矩陣視圖資料（含排序）
   const matrixData = useMemo(() => {
-    const hospitalsWithPrices = hospitals.filter(h => 
+    let hospitalsWithPrices = hospitals.filter(h => 
       h.consumables && h.consumables.length > 0 && h.consumables.some(c => c.price > 0)
     );
 
     // 套用篩選
-    return hospitalsWithPrices.filter(h => {
+    hospitalsWithPrices = hospitalsWithPrices.filter(h => {
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         if (!h.name.toLowerCase().includes(term)) return false;
@@ -201,7 +217,34 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       if (activeFilters.level !== 'All' && h.level !== activeFilters.level) return false;
       return true;
     });
-  }, [hospitals, searchTerm, activeFilters]);
+
+    // 套用排序
+    if (sortConfig) {
+      hospitalsWithPrices = [...hospitalsWithPrices].sort((a, b) => {
+        let comparison = 0;
+        switch (sortConfig.key) {
+          case 'hospital':
+            comparison = a.name.localeCompare(b.name, 'zh-TW');
+            break;
+          case 'region':
+            comparison = (REGION_ORDER[a.region] || 99) - (REGION_ORDER[b.region] || 99);
+            break;
+          case 'level':
+            comparison = (LEVEL_ORDER[a.level] || 99) - (LEVEL_ORDER[b.level] || 99);
+            break;
+          case 'price':
+            // 依選擇的產品價格排序
+            const priceA = a.consumables?.find(c => c.code === selectedProduct)?.price || 0;
+            const priceB = b.consumables?.find(c => c.code === selectedProduct)?.price || 0;
+            comparison = priceA - priceB;
+            break;
+        }
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return hospitalsWithPrices;
+  }, [hospitals, searchTerm, activeFilters, sortConfig, selectedProduct]);
 
   // 格式化金額
   const formatCurrency = (amount: number): string => {
@@ -424,53 +467,38 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
             </div>
           </>
         ) : (
-          <>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-3 flex items-center justify-center">
-              <p className="text-slate-400">選擇耗材以查看統計</p>
-            </div>
-          </>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-3 flex items-center justify-center">
+            <p className="text-slate-400">選擇耗材以查看統計</p>
+          </div>
         )}
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl shadow-sm border border-slate-200/60 mb-4 md:mb-6">
-        <div className="flex gap-2 md:gap-3 items-center">
+      <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm border border-slate-200/60 mb-4 md:mb-6">
+        <div className="flex gap-2 items-center">
           <div className="relative flex-1 group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
             <input
               type="text"
               placeholder="搜尋醫院..."
-              className="w-full pl-9 pr-3 py-2 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
-          {/* Product Filter - Desktop */}
-          <div className="hidden md:block">
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 text-sm min-w-[140px]"
-            >
-              {consumableProducts.map(p => (
-                <option key={p.code} value={p.code}>{p.code}</option>
-              ))}
-            </select>
-          </div>
 
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`shrink-0 flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2.5 rounded-lg md:rounded-xl border font-medium transition-colors ${
+            className={`shrink-0 flex items-center justify-center px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
               isFilterOpen || hasFilters
                 ? 'bg-blue-50 border-blue-200 text-blue-700'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
             <Filter size={16} />
-            <span className="hidden md:inline ml-2">篩選</span>
+            <span className="hidden sm:inline ml-1.5">篩選</span>
             {hasFilters && (
-              <span className="hidden md:flex h-2 w-2 rounded-full bg-blue-600 ml-1 ring-2 ring-white"></span>
+              <span className="ml-1 h-1.5 w-1.5 rounded-full bg-blue-600"></span>
             )}
           </button>
         </div>
@@ -480,6 +508,8 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           <span className="text-xs text-slate-500 font-medium shrink-0">排序：</span>
           {([
             { key: 'hospital' as SortKey, label: '醫院' },
+            { key: 'region' as SortKey, label: '區域' },
+            { key: 'level' as SortKey, label: '等級' },
             { key: 'price' as SortKey, label: '價格' }
           ]).map((item) => (
             <button
@@ -503,7 +533,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
 
         {/* Filter Panel */}
         {isFilterOpen && (
-          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 animate-fade-in">
+          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-3 animate-fade-in">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">區域</label>
               <select
@@ -553,8 +583,18 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                   >
                     <div className="flex items-center">醫院 {getSortIcon('hospital')}</div>
                   </th>
-                  <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">區域</th>
-                  <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">等級</th>
+                  <th 
+                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    onClick={() => handleSort('region')}
+                  >
+                    <div className="flex items-center">區域 {getSortIcon('region')}</div>
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    onClick={() => handleSort('level')}
+                  >
+                    <div className="flex items-center">等級 {getSortIcon('level')}</div>
+                  </th>
                   <th 
                     className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
                     onClick={() => handleSort('price')}
@@ -623,20 +663,35 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       {viewMode === 'matrix' && (
         <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 flex-1 min-h-0 overflow-hidden">
           <div className="overflow-auto h-full">
-            <table className="w-full text-left">
+            <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50/80 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
-                  <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50/80 z-20 min-w-[200px]">
-                    醫院
+                  <th 
+                    className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-20 min-w-[180px] cursor-pointer hover:bg-slate-100 transition-colors border-r border-slate-200"
+                    onClick={() => handleSort('hospital')}
+                  >
+                    <div className="flex items-center">醫院 {getSortIcon('hospital')}</div>
+                  </th>
+                  <th 
+                    className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors w-[70px]"
+                    onClick={() => handleSort('region')}
+                  >
+                    <div className="flex items-center">區域 {getSortIcon('region')}</div>
+                  </th>
+                  <th 
+                    className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors w-[80px] border-r border-slate-200"
+                    onClick={() => handleSort('level')}
+                  >
+                    <div className="flex items-center">等級 {getSortIcon('level')}</div>
                   </th>
                   {productsWithPrices.map(product => (
                     <th 
                       key={product.code}
-                      className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center min-w-[100px]"
+                      className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center min-w-[90px]"
                     >
                       <div>{product.code}</div>
                       {productStats[product.code] && (
-                        <div className="text-[10px] font-normal text-slate-400 mt-1">
+                        <div className="text-[10px] font-normal text-slate-400 mt-0.5">
                           平均 {formatCurrency(productStats[product.code].avg)}
                         </div>
                       )}
@@ -651,20 +706,23 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                     onClick={() => goToHospital(hospital.id)}
                     className="hover:bg-slate-50 cursor-pointer group transition-colors"
                   >
-                    <td className="px-5 py-4 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10">
-                      <div>
-                        <span className="font-medium text-slate-900">{hospital.name}</span>
-                        <p className="text-xs text-slate-400">{hospital.region} · {hospital.level}</p>
-                      </div>
+                    <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-100">
+                      <span className="font-medium text-slate-900 text-sm">{hospital.name}</span>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-slate-500">{hospital.region}</td>
+                    <td className="px-3 py-3 border-r border-slate-100">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                        {hospital.level}
+                      </span>
                     </td>
                     {productsWithPrices.map(product => {
                       const price = getHospitalProductPrice(hospital, product.code);
                       const status = price ? getPriceStatus(price, product.code) : null;
                       
                       return (
-                        <td key={product.code} className="px-4 py-4 text-center">
+                        <td key={product.code} className="px-3 py-3 text-center">
                           {price ? (
-                            <span className={`font-semibold ${
+                            <span className={`font-semibold text-sm ${
                               status === 'high' ? 'text-amber-600' :
                               status === 'low' ? 'text-emerald-600' :
                               'text-slate-700'
@@ -690,8 +748,6 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
         {sortedPriceData.length > 0 ? (
           sortedPriceData.map((item, index) => {
             const status = getPriceStatus(item.price, item.productCode);
-            const stats = productStats[item.productCode];
-            const diffPercent = stats ? Math.round((item.price - stats.avg) / stats.avg * 100) : 0;
 
             return (
               <div
@@ -740,7 +796,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       </div>
 
       {/* Empty State for Desktop */}
-      {sortedPriceData.length === 0 && (
+      {((viewMode === 'list' && sortedPriceData.length === 0) || (viewMode === 'matrix' && matrixData.length === 0)) && (
         <div className="hidden md:flex p-16 text-center text-slate-400 flex-col items-center justify-center">
           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <DollarSign size={24} className="text-slate-300" />
