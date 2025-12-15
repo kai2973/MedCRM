@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Bell, Shield, Database, Save, Check, Loader, Pencil, X, Camera } from 'lucide-react';
+import { User, Bell, Shield, Database, Save, Check, Loader, Pencil, X, Camera, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import UserManagement from './UserManagement';
 
-type SettingsSection = 'profile' | 'notifications' | 'security' | 'data';
+type SettingsSection = 'profile' | 'notifications' | 'security' | 'data' | 'users';
 
 const Settings: React.FC = () => {
   const { section } = useParams<{ section?: string }>();
   const navigate = useNavigate();
   const { user, profile: authProfile, updateProfile } = useAuth();
+  const isAdmin = authProfile?.role_type === 'admin';
   
   // 從 URL 取得 section，預設為 profile
-  const validSections: SettingsSection[] = ['profile', 'notifications', 'security', 'data'];
+  const validSections: SettingsSection[] = ['profile', 'notifications', 'security', 'data', 'users'];
+  // ... 其餘程式碼
   const activeSection: SettingsSection = validSections.includes(section as SettingsSection) 
     ? (section as SettingsSection) 
     : 'profile';
@@ -432,6 +435,15 @@ const Settings: React.FC = () => {
                         <Database size={18} />
                         <span>資料管理</span>
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setActiveSection('users')}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all ${activeSection === 'users' ? 'bg-white text-blue-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+    >
+                        <Users size={18} />
+                        <span>使用者管理</span>
+                      </button>
+                    )}
                 </nav>
             </div>
 
@@ -801,6 +813,9 @@ const Settings: React.FC = () => {
                                 </button>
                              </div>
                         </div>
+                    )}
+                    {activeSection === 'users' && isAdmin && (
+                      <UserManagement />
                     )}
                 </div>
             </div>
