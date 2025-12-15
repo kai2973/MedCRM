@@ -663,23 +663,23 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       {viewMode === 'matrix' && (
         <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 flex-1 min-h-0 overflow-hidden">
           <div className="overflow-auto h-full">
-            <table className="w-full text-left border-collapse">
+            <table className="text-left border-collapse">
               <thead className="bg-slate-50/80 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
                   <th 
-                    className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-20 min-w-[180px] cursor-pointer hover:bg-slate-100 transition-colors border-r border-slate-200"
+                    className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-20 cursor-pointer hover:bg-slate-100 transition-colors border-r border-slate-200 whitespace-nowrap"
                     onClick={() => handleSort('hospital')}
                   >
                     <div className="flex items-center">醫院 {getSortIcon('hospital')}</div>
                   </th>
                   <th 
-                    className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors w-[70px]"
+                    className="px-2 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap"
                     onClick={() => handleSort('region')}
                   >
                     <div className="flex items-center">區域 {getSortIcon('region')}</div>
                   </th>
                   <th 
-                    className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors w-[80px] border-r border-slate-200"
+                    className="px-2 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors border-r border-slate-200 whitespace-nowrap"
                     onClick={() => handleSort('level')}
                   >
                     <div className="flex items-center">等級 {getSortIcon('level')}</div>
@@ -687,7 +687,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                   {productsWithPrices.map(product => (
                     <th 
                       key={product.code}
-                      className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center min-w-[90px]"
+                      className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center whitespace-nowrap"
                     >
                       <div>{product.code}</div>
                       {productStats[product.code] && (
@@ -706,11 +706,11 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                     onClick={() => goToHospital(hospital.id)}
                     className="hover:bg-slate-50 cursor-pointer group transition-colors"
                   >
-                    <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-100">
+                    <td className="px-3 py-2.5 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-100 whitespace-nowrap">
                       <span className="font-medium text-slate-900 text-sm">{hospital.name}</span>
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-500">{hospital.region}</td>
-                    <td className="px-3 py-3 border-r border-slate-100">
+                    <td className="px-2 py-2.5 text-xs text-slate-500 whitespace-nowrap">{hospital.region}</td>
+                    <td className="px-2 py-2.5 border-r border-slate-100 whitespace-nowrap">
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
                         {hospital.level}
                       </span>
@@ -720,7 +720,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                       const status = price ? getPriceStatus(price, product.code) : null;
                       
                       return (
-                        <td key={product.code} className="px-3 py-3 text-center">
+                        <td key={product.code} className="px-2 py-2.5 text-center whitespace-nowrap">
                           {price ? (
                             <span className={`font-semibold text-sm ${
                               status === 'high' ? 'text-amber-600' :
