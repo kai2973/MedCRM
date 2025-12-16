@@ -13,10 +13,22 @@ import {
   ArrowUp,
   ArrowDown,
   Info,
-  AlertCircle
+  AlertCircle,
+  Download,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { Hospital, Region, HospitalLevel, ProductType } from '../types';
 import { PRODUCTS } from '../constants';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 interface PriceListProps {
   hospitals: Hospital[];
@@ -52,6 +64,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
   });
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // 取得耗材產品列表
   const consumableProducts = useMemo(() => 
@@ -65,6 +78,19 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       setSelectedProduct(consumableProducts[0].code);
     }
   }, [consumableProducts, selectedProduct]);
+
+  // 點擊外部關閉選單
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown]')) {
+        setShowExportMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // 彙整所有價格資料
   const priceData = useMemo(() => {
@@ -316,6 +342,144 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
     return consumableProducts.filter(p => codes.has(p.code));
   }, [hospitals, consumableProducts]);
 
+  // ============== 匯出功能 ==============
+  
+  // 匯出 Excel
+  const exportToExcel = () => {
+    // 準備矩陣格式的資料
+    const data = matrixData.map(hospital => {
+      const row: Record<string, string | number> = {
+        '醫院名稱': hospital.name,
+        '區域': hospital.region,
+        '等級': hospital.level
+      };
+      
+      // 加入各產品價格
+      productsWithPrices.forEach(product => {
+        const price = getHospitalProductPrice(hospital, product.code);
+        row[product.code] = price || '-';
+      });
+      
+      return row;
+    });
+
+    // 加入統計列
+    if (data.length > 0) {
+      const avgRow: Record<string, string | number> = {
+        '醫院名稱': '【平均價格】',
+        '區域': '',
+        '等級': ''
+      };
+      const minRow: Record<string, string | number> = {
+        '醫院名稱': '【最低價格】',
+        '區域': '',
+        '等級': ''
+      };
+      const maxRow: Record<string, string | number> = {
+        '醫院名稱': '【最高價格】',
+        '區域': '',
+        '等級': ''
+      };
+
+      productsWithPrices.forEach(product => {
+        const stats = productStats[product.code];
+        avgRow[product.code] = stats ? stats.avg : '-';
+        minRow[product.code] = stats ? stats.min : '-';
+        maxRow[product.code] = stats ? stats.max : '-';
+      });
+
+      data.push({ '醫院名稱': '', '區域': '', '等級': '' }); // 空行
+      data.push(avgRow);
+      data.push(minRow);
+      data.push(maxRow);
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '價格清單');
+    
+    // 設定欄寬
+    const colWidths = [
+      { wch: 20 }, // 醫院名稱
+      { wch: 8 },  // 區域
+      { wch: 10 }, // 等級
+      ...productsWithPrices.map(() => ({ wch: 10 })) // 各產品
+    ];
+    ws['!cols'] = colWidths;
+
+    const today = new Date().toISOString().split('T')[0];
+    const fileName = `價格清單_${today}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    setShowExportMenu(false);
+  };
+
+  // 匯出 PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF('landscape');
+    
+    // 標題
+    doc.setFontSize(16);
+    doc.text('耗材價格清單', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`匯出日期：${new Date().toLocaleDateString('zh-TW')}`, 14, 28);
+    doc.text(`共 ${matrixData.length} 家醫院`, 14, 34);
+    
+    // 準備表格資料
+    const headers = ['醫院名稱', '區域', '等級', ...productsWithPrices.map(p => p.code)];
+    
+    const tableData = matrixData.map(hospital => {
+      const row = [
+        hospital.name,
+        hospital.region,
+        hospital.level
+      ];
+      
+      productsWithPrices.forEach(product => {
+        const price = getHospitalProductPrice(hospital, product.code);
+        row.push(price ? `$${price}` : '-');
+      });
+      
+      return row;
+    });
+
+    // 加入統計列
+    if (tableData.length > 0) {
+      const avgRow = ['【平均】', '', ''];
+      const minRow = ['【最低】', '', ''];
+      const maxRow = ['【最高】', '', ''];
+
+      productsWithPrices.forEach(product => {
+        const stats = productStats[product.code];
+        avgRow.push(stats ? `$${stats.avg}` : '-');
+        minRow.push(stats ? `$${stats.min}` : '-');
+        maxRow.push(stats ? `$${stats.max}` : '-');
+      });
+
+      tableData.push(['', '', '', ...productsWithPrices.map(() => '')]); // 空行
+      tableData.push(avgRow);
+      tableData.push(minRow);
+      tableData.push(maxRow);
+    }
+
+    doc.autoTable({
+      head: [headers],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 22 }
+      }
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    const fileName = `價格清單_${today}.pdf`;
+    doc.save(fileName);
+    setShowExportMenu(false);
+  };
+
   const hasFilters = activeFilters.region !== 'All' || activeFilters.level !== 'All';
   const currentStats = selectedProduct ? productStats[selectedProduct] : null;
   const missingCount = selectedProduct ? getMissingPriceCount(selectedProduct) : 0;
@@ -329,239 +493,176 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           <p className="text-slate-500 text-sm md:text-base mt-1">查看各醫院的耗材價格與統計分析。</p>
         </div>
         
-        {/* View Mode Toggle - Desktop */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'list' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            清單檢視
-          </button>
-          <button
-            onClick={() => setViewMode('matrix')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'matrix' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            矩陣檢視
-          </button>
+        <div className="flex items-center gap-2">
+          {/* 匯出按鈕 */}
+          <div className="relative" data-dropdown>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowExportMenu(!showExportMenu);
+              }}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm transition-all"
+            >
+              <Download size={16} />
+              <span className="text-sm">匯出</span>
+            </button>
+            
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-[9999] py-1">
+                <button 
+                  onClick={exportToExcel} 
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                >
+                  <FileSpreadsheet size={16} className="text-green-600" />
+                  <span>匯出 Excel</span>
+                </button>
+                <button 
+                  onClick={exportToPDF} 
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                >
+                  <FileText size={16} className="text-red-600" />
+                  <span>匯出 PDF</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* View Mode Toggle - Desktop */}
+          <div className="hidden md:flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'list' 
+                  ? 'bg-white text-slate-900 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              清單檢視
+            </button>
+            <button
+              onClick={() => setViewMode('matrix')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'matrix' 
+                  ? 'bg-white text-slate-900 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              矩陣檢視
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile: Product Selector + Stats Bar */}
-      <div className="md:hidden mb-4">
-        {/* Product Tabs */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          {consumableProducts.map(p => (
+      {/* Product Tabs - 清單模式 */}
+      {viewMode === 'list' && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 md:pb-0">
+          {consumableProducts.map(product => (
             <button
-              key={p.code}
-              onClick={() => setSelectedProduct(p.code)}
-              className={`px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                selectedProduct === p.code
+              key={product.code}
+              onClick={() => setSelectedProduct(product.code)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                selectedProduct === product.code
                   ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 border border-slate-200'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
               }`}
             >
-              {p.code}
+              {product.code}
             </button>
           ))}
         </div>
+      )}
 
-        {/* Stats for Selected Product */}
-        {currentStats ? (
-          <div className="mt-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 font-medium">最低</p>
-                  <p className="text-sm font-bold text-emerald-600">{formatCurrency(currentStats.min)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 font-medium">平均</p>
-                  <p className="text-sm font-bold text-slate-900">{formatCurrency(currentStats.avg)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 font-medium">最高</p>
-                  <p className="text-sm font-bold text-amber-600">{formatCurrency(currentStats.max)}</p>
-                </div>
-              </div>
-              {missingCount > 0 && (
-                <div className="flex items-center gap-1.5 bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">
-                  <AlertCircle size={12} />
-                  <span className="text-xs font-medium">{missingCount} 家未建立</span>
-                </div>
-              )}
+      {/* Stats Cards - 清單模式 */}
+      {viewMode === 'list' && currentStats && (
+        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4">
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-xs md:text-sm mb-1">
+              <TrendingDown size={14} className="text-emerald-500" />
+              <span>最低價</span>
             </div>
+            <p className="text-lg md:text-2xl font-bold text-emerald-600">{formatCurrency(currentStats.min)}</p>
           </div>
-        ) : (
-          <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
-            <p className="text-sm text-slate-500">尚無價格資料</p>
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-xs md:text-sm mb-1">
+              <Minus size={14} className="text-blue-500" />
+              <span>平均價</span>
+            </div>
+            <p className="text-lg md:text-2xl font-bold text-blue-600">{formatCurrency(currentStats.avg)}</p>
           </div>
-        )}
-      </div>
-
-      {/* Desktop Stats Cards */}
-      <div className="hidden md:grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-              <Package size={20} />
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-xs md:text-sm mb-1">
+              <TrendingUp size={14} className="text-amber-500" />
+              <span>最高價</span>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">選擇耗材</p>
-              <select
-                value={selectedProduct}
-                onChange={(e) => setSelectedProduct(e.target.value)}
-                className="text-lg font-bold text-slate-900 bg-transparent border-none p-0 focus:outline-none cursor-pointer"
-              >
-                {consumableProducts.map(p => (
-                  <option key={p.code} value={p.code}>{p.code}</option>
-                ))}
-              </select>
-            </div>
+            <p className="text-lg md:text-2xl font-bold text-amber-600">{formatCurrency(currentStats.max)}</p>
           </div>
         </div>
-        
-        {currentStats ? (
-          <>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                  <TrendingDown size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-medium">最低價</p>
-                  <p className="text-xl font-bold text-emerald-600">{formatCurrency(currentStats.min)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-medium">最高價</p>
-                  <p className="text-xl font-bold text-amber-600">{formatCurrency(currentStats.max)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
-                  <AlertCircle size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-medium">未建立價格</p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {missingCount} <span className="text-sm font-normal text-slate-400">家醫院</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-3 flex items-center justify-center">
-            <p className="text-slate-400">選擇耗材以查看統計</p>
-          </div>
-        )}
-      </div>
+      )}
+
+      {/* 缺少價格提示 */}
+      {viewMode === 'list' && missingCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
+          <AlertCircle size={16} className="text-amber-600" />
+          <span className="text-sm text-amber-700">
+            尚有 <strong>{missingCount}</strong> 家醫院未設定 {selectedProduct} 價格
+          </span>
+        </div>
+      )}
 
       {/* Search and Filter Bar */}
-      <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm border border-slate-200/60 mb-4 md:mb-6">
+      <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200/60 mb-4">
         <div className="flex gap-2 items-center">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="搜尋醫院..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-400 text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`shrink-0 flex items-center justify-center px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+            className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
               isFilterOpen || hasFilters
-                ? 'bg-blue-50 border-blue-200 text-blue-700'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                ? 'bg-blue-50 border-blue-200 text-blue-600'
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Filter size={16} />
-            <span className="hidden sm:inline ml-1.5">篩選</span>
-            {hasFilters && (
-              <span className="ml-1 h-1.5 w-1.5 rounded-full bg-blue-600"></span>
-            )}
+            <Filter size={18} />
           </button>
-        </div>
-
-        {/* Mobile Sort Bar */}
-        <div className="md:hidden mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <span className="text-xs text-slate-500 font-medium shrink-0">排序：</span>
-          {([
-            { key: 'hospital' as SortKey, label: '醫院' },
-            { key: 'region' as SortKey, label: '區域' },
-            { key: 'level' as SortKey, label: '等級' },
-            { key: 'price' as SortKey, label: '價格' }
-          ]).map((item) => (
-            <button
-              key={item.key}
-              onClick={() => handleSort(item.key)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-colors ${
-                sortConfig?.key === item.key
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200'
-              }`}
-            >
-              {item.label}
-              {sortConfig?.key === item.key && (
-                sortConfig.direction === 'asc' 
-                  ? <ArrowUp size={10} />
-                  : <ArrowDown size={10} />
-              )}
-            </button>
-          ))}
         </div>
 
         {/* Filter Panel */}
         {isFilterOpen && (
-          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-3 animate-fade-in">
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">區域</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">區域</label>
               <select
+                className="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"
                 value={activeFilters.region}
-                onChange={(e) => setActiveFilters(prev => ({ ...prev, region: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
+                onChange={(e) => setActiveFilters({ ...activeFilters, region: e.target.value })}
               >
-                {['All', ...Object.values(Region)].map(r => (
-                  <option key={r} value={r}>{r === 'All' ? '所有區域' : r}</option>
-                ))}
+                <option value="All">所有區域</option>
+                {Object.values(Region).map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">等級</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">等級</label>
               <select
+                className="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"
                 value={activeFilters.level}
-                onChange={(e) => setActiveFilters(prev => ({ ...prev, level: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-slate-900 text-sm"
+                onChange={(e) => setActiveFilters({ ...activeFilters, level: e.target.value })}
               >
-                {['All', ...Object.values(HospitalLevel)].map(l => (
-                  <option key={l} value={l}>{l === 'All' ? '所有等級' : l}</option>
-                ))}
+                <option value="All">所有等級</option>
+                {Object.values(HospitalLevel).map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
-            <div className="col-span-2 md:col-span-1 flex items-end">
+            <div className="flex items-end col-span-2 md:col-span-1">
               <button
                 onClick={resetFilters}
-                className="text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors w-full md:w-auto"
+                className="text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 px-4 py-2.5 rounded-lg transition-colors w-full"
               >
                 重置篩選
               </button>
@@ -570,42 +671,44 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
         )}
       </div>
 
-      {/* Desktop Table View (List Mode) */}
+      {/* Desktop List View */}
       {viewMode === 'list' && (
         <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200/60 flex-1 min-h-0 overflow-hidden">
           <div className="overflow-x-auto h-full">
             <table className="w-full text-left">
-              <thead className="bg-slate-50/80 border-b border-slate-200 sticky top-0">
+              <thead className="bg-slate-50/80 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
                   <th 
-                    className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => handleSort('hospital')}
                   >
-                    <div className="flex items-center">醫院 {getSortIcon('hospital')}</div>
+                    <div className="flex items-center">醫院名稱 {getSortIcon('hospital')}</div>
                   </th>
                   <th 
-                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => handleSort('region')}
                   >
                     <div className="flex items-center">區域 {getSortIcon('region')}</div>
                   </th>
                   <th 
-                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => handleSort('level')}
                   >
                     <div className="flex items-center">等級 {getSortIcon('level')}</div>
                   </th>
                   <th 
-                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => handleSort('price')}
                   >
                     <div className="flex items-center">價格 {getSortIcon('price')}</div>
                   </th>
-                  <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">相對平均</th>
+                  <th className="px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    相較平均
+                  </th>
                   <th className="px-3 py-4"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {sortedPriceData.map((item, index) => {
                   const status = getPriceStatus(item.price, item.productCode);
                   const stats = productStats[item.productCode];
@@ -615,19 +718,19 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                     <tr 
                       key={`${item.hospitalId}-${item.productCode}-${index}`}
                       onClick={() => goToHospital(item.hospitalId)}
-                      className="hover:bg-slate-50 cursor-pointer group transition-colors"
+                      className="border-b border-slate-100 hover:bg-blue-50/50 cursor-pointer group transition-colors"
                     >
                       <td className="px-5 py-4">
                         <span className="font-medium text-slate-900">{item.hospitalName}</span>
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-500">{item.region}</td>
+                      <td className="px-4 py-4 text-slate-500">{item.region}</td>
                       <td className="px-4 py-4">
-                        <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           {item.level}
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`font-bold text-lg ${
+                        <span className={`font-bold ${
                           status === 'high' ? 'text-amber-600' :
                           status === 'low' ? 'text-emerald-600' :
                           'text-slate-900'
@@ -722,7 +825,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                       return (
                         <td key={product.code} className="px-4 py-3 text-center">
                           {price ? (
-                            <span className={`font-semibold ${
+                            <span className={`font-semibold text-sm ${
                               status === 'high' ? 'text-amber-600' :
                               status === 'low' ? 'text-emerald-600' :
                               'text-slate-700'
@@ -744,23 +847,23 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
       )}
 
       {/* Mobile Card View */}
-      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-2 pb-4">
+      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-3 pb-4">
         {sortedPriceData.length > 0 ? (
           sortedPriceData.map((item, index) => {
             const status = getPriceStatus(item.price, item.productCode);
-
+            
             return (
               <div
                 key={`${item.hospitalId}-${item.productCode}-${index}`}
                 onClick={() => goToHospital(item.hospitalId)}
-                className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 active:scale-[0.98] transition-transform cursor-pointer"
+                className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 active:scale-[0.98] transition-transform cursor-pointer"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-slate-900 truncate">{item.hospitalName}</h3>
-                    <p className="text-xs text-slate-500">{item.region} · {item.level}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.region} · {item.level}</p>
                   </div>
-                  <div className="text-right ml-3 flex items-center gap-2">
+                  <div className="text-right ml-3">
                     <span className={`text-lg font-bold ${
                       status === 'high' ? 'text-amber-600' :
                       status === 'low' ? 'text-emerald-600' :
@@ -768,7 +871,7 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
                     }`}>
                       {formatCurrency(item.price)}
                     </span>
-                    <div className={`flex items-center text-xs font-medium ${
+                    <div className={`flex items-center justify-end text-xs font-medium ${
                       status === 'high' ? 'text-amber-500' :
                       status === 'low' ? 'text-emerald-500' :
                       'text-slate-400'
@@ -817,20 +920,20 @@ const PriceList: React.FC<PriceListProps> = ({ hospitals }) => {
           <button className="w-10 h-10 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
             <Info size={18} />
           </button>
-          <div className="absolute bottom-full right-0 mb-2 w-64 p-4 bg-white rounded-xl shadow-xl border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-            <h4 className="font-bold text-slate-900 text-sm mb-2">價格標示說明</h4>
-            <div className="space-y-2 text-xs">
+          <div className="absolute bottom-full right-0 mb-2 w-64 bg-slate-800 text-white text-xs rounded-xl p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <p className="font-semibold mb-2">價格狀態說明</p>
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <TrendingUp size={14} className="text-amber-600" />
-                <span className="text-slate-600">高於平均 10% 以上</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingDown size={14} className="text-emerald-600" />
-                <span className="text-slate-600">低於平均 10% 以上</span>
+                <TrendingUp size={14} className="text-amber-400" />
+                <span>高於平均 10% 以上</span>
               </div>
               <div className="flex items-center gap-2">
                 <Minus size={14} className="text-slate-400" />
-                <span className="text-slate-600">接近平均值</span>
+                <span>接近平均價格</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingDown size={14} className="text-emerald-400" />
+                <span>低於平均 10% 以上</span>
               </div>
             </div>
           </div>
