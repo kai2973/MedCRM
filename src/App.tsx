@@ -74,6 +74,25 @@ const HospitalDetailWrapper: React.FC<{
 
   const hospital = hospitals.find(h => h.id === id);
 
+  // 計算當前醫院在列表中的索引位置
+  const currentIndex = hospitals.findIndex(h => h.id === id);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < hospitals.length - 1 && currentIndex !== -1;
+
+  // 導航到上一間醫院
+  const navigateToPrev = () => {
+    if (hasPrev) {
+      navigate(`/hospitals/${hospitals[currentIndex - 1].id}`);
+    }
+  };
+
+  // 導航到下一間醫院
+  const navigateToNext = () => {
+    if (hasNext) {
+      navigate(`/hospitals/${hospitals[currentIndex + 1].id}`);
+    }
+  };
+
   if (!hospital) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -113,6 +132,10 @@ const HospitalDetailWrapper: React.FC<{
       onUpdateEquipment={onUpdateEquipment}
       onDeleteEquipment={onDeleteEquipment}
       onBack={() => navigate('/hospitals')}
+      onNavigateToPrev={navigateToPrev}
+      onNavigateToNext={navigateToNext}
+      hasPrev={hasPrev}
+      hasNext={hasNext}
     />
   );
 };
