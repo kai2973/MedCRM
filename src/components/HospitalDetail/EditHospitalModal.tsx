@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Building } from 'lucide-react';
-import { Hospital, HospitalLevel, SalesStage, Region } from '../../types';
+import { Hospital, HospitalLevel, SalesStage, Region, City } from '../../types';
 
 interface EditHospitalModalProps {
     hospital: Hospital;
@@ -127,14 +127,21 @@ const EditHospitalModal: React.FC<EditHospitalModalProps> = ({
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">地址</label>
-                            <input
-                                type="text"
-                                name="address"
-                                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                value={formData.address}
-                                onChange={handleChange}
-                            />
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">縣市</label>
+                            <div className="relative">
+                                <select
+                                    name="address"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all appearance-none cursor-pointer"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                >
+                                    <option value="">請選擇縣市</option>
+                                    {Object.values(City).map(c => (
+                                        <option key={c} value={c}>{c}</option>            
+                                    ))}
+                                </select>
+                                <SelectArrow />
+                            </div>
                         </div>
 
                         <div className="col-span-2">

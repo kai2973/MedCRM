@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, ChevronRight, Plus, X, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Building, DollarSign } from 'lucide-react';
-import { Hospital, SalesStage, HospitalLevel, Region } from '../types';
+import { Hospital, SalesStage, HospitalLevel, Region, City } from '../types';
 
 interface HospitalListProps {
   hospitals: Hospital[];
@@ -65,11 +65,10 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
   };
   const stageOrder: Record<string, number> = {
     [SalesStage.LEAD]: 1,
-    [SalesStage.QUALIFICATION]: 2,
+    [SalesStage.CONTACT]: 2,
     [SalesStage.TRIAL]: 3,
-    [SalesStage.NEGOTIATION]: 4,
-    [SalesStage.CLOSED_WON]: 5,
-    [SalesStage.CLOSED_LOST]: 6
+    [SalesStage.PARTNER]: 4,
+    [SalesStage.KEY_ACCOUNT]: 5
   };
 
   const formatLastVisit = (lastVisit: string): string => {
@@ -204,12 +203,11 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
   const getStageBadge = (stage: SalesStage) => {
     const colors: Record<SalesStage, string> = {
       [SalesStage.LEAD]: 'bg-slate-100 text-slate-600 ring-slate-200',
-      [SalesStage.QUALIFICATION]: 'bg-blue-50 text-blue-600 ring-blue-100',
+      [SalesStage.CONTACT]: 'bg-blue-50 text-blue-600 ring-blue-100',
       [SalesStage.TRIAL]: 'bg-amber-50 text-amber-600 ring-amber-100',
-      [SalesStage.NEGOTIATION]: 'bg-purple-50 text-purple-600 ring-purple-100',
-      [SalesStage.CLOSED_WON]: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-      [SalesStage.CLOSED_LOST]: 'bg-red-50 text-red-600 ring-red-100',
-    };
+      [SalesStage.PARTNER]: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+      [SalesStage.KEY_ACCOUNT]: 'bg-purple-50 text-purple-600 ring-purple-100',
+   };
     return (
       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset whitespace-nowrap ${colors[stage]}`}>
         {stage}
@@ -537,14 +535,22 @@ const HospitalList: React.FC<HospitalListProps> = ({ hospitals, onSelectHospital
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">地址</label>
-                <input
-                  type="text"
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
-                  placeholder="完整地址"
-                  value={newHospital.address}
-                  onChange={(e) => setNewHospital({ ...newHospital, address: e.target.value })}
-                />
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">縣市</label>
+                <div className="relative">
+                  <select
+                    className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white appearance-none cursor-pointer"
+                    value={newHospital.address}
+                    onChange={(e) => setNewHospital({ ...newHospital, address: e.target.value })}  
+                  >
+                    <option value="">請選擇縣市</option>
+                    {Object.values(City).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">初始階段</label>

@@ -1,4 +1,3 @@
-
 export enum ProductType {
   EQUIPMENT = '設備',
   CONSUMABLE = '耗材'
@@ -24,11 +23,10 @@ export interface UsageRecord {
 
 export enum SalesStage {
   LEAD = '潛在客戶',
-  QUALIFICATION = '資格審查',
-  TRIAL = '試用',
-  NEGOTIATION = '協商',
-  CLOSED_WON = '成交',
-  CLOSED_LOST = '流失'
+  CONTACT = '接洽中',
+  TRIAL = '試用評估',
+  PARTNER = '合作客戶',
+  KEY_ACCOUNT = '重點客戶'
 }
 
 export enum HospitalLevel {
@@ -82,6 +80,37 @@ export enum Region {
   CENTRAL = '中區',
   SOUTH = '南區',
   EAST = '東區'
+}
+
+// 台灣縣市
+export enum City {
+  // 北區
+  TAIPEI = '台北市',
+  NEW_TAIPEI = '新北市',
+  KEELUNG = '基隆市',
+  TAOYUAN = '桃園市',
+  HSINCHU_CITY = '新竹市',
+  HSINCHU_COUNTY = '新竹縣',
+  // 中區
+  MIAOLI = '苗栗縣',
+  TAICHUNG = '台中市',
+  CHANGHUA = '彰化縣',
+  NANTOU = '南投縣',
+  YUNLIN = '雲林縣',
+  // 南區
+  CHIAYI_CITY = '嘉義市',
+  CHIAYI_COUNTY = '嘉義縣',
+  TAINAN = '台南市',
+  KAOHSIUNG = '高雄市',
+  PINGTUNG = '屏東縣',
+  // 東區
+  YILAN = '宜蘭縣',
+  HUALIEN = '花蓮縣',
+  TAITUNG = '台東縣',
+  // 離島
+  PENGHU = '澎湖縣',
+  KINMEN = '金門縣',
+  LIENCHIANG = '連江縣'
 }
 
 // 耗材價格資訊

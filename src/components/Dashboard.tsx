@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, PieChart, Pie, Cell
@@ -37,7 +36,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
     return date >= cutoff;
   };
 
-  // Memoized Filtered Data
+    // Memoized Filtered Data
   const filteredSales = useMemo(() =>
     usageRecords.filter(r => r.type !== '樣品' && filterByDate(r.date)),
     [usageRecords, timeRange]);
@@ -46,7 +45,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
     notes.filter(n => filterByDate(n.date)),
     [notes, timeRange]);
 
-  // 1. Sales Trends (Bar Chart)
+    // 1. Sales Trends (Bar Chart)
   const usageData = useMemo(() => {
     const groupedByDate: Record<string, any> = {};
     filteredSales.forEach(record => {
@@ -63,7 +62,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
     );
   }, [filteredSales]);
 
-  // 2. Regional Performance (Bar Chart)
+    // 2. Regional Performance (Bar Chart)
   const regionData = useMemo(() => {
     const regionMap: Record<string, number> = {};
     filteredSales.forEach(r => {
@@ -78,15 +77,15 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
     })).sort((a, b) => b.sales - a.sales);
   }, [filteredSales, hospitals]);
 
-  // 3. Pipeline Distribution (Pie/Donut)
+    // 3. Pipeline Distribution (Pie/Donut)
   const pipelineData = useMemo(() => {
     const stageCounts: Record<string, number> = {};
     hospitals.forEach(h => {
       stageCounts[h.stage] = (stageCounts[h.stage] || 0) + 1;
     });
 
-    // Ensure order
-    const order = [SalesStage.LEAD, SalesStage.QUALIFICATION, SalesStage.TRIAL, SalesStage.NEGOTIATION, SalesStage.CLOSED_WON];
+    // 更新階段順序
+    const order = [SalesStage.LEAD, SalesStage.CONTACT, SalesStage.TRIAL, SalesStage.PARTNER, SalesStage.KEY_ACCOUNT];
     return order.map(stage => ({
       name: stage,
       value: stageCounts[stage] || 0
@@ -106,9 +105,8 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
 
   // 5. KPI Stats
   const activeTrials = hospitals.filter(h => h.stage === SalesStage.TRIAL).length;
-  const inNegotiation = hospitals.filter(h => h.stage === SalesStage.NEGOTIATION).length;
   const openOpportunities = hospitals.filter(h =>
-    [SalesStage.LEAD, SalesStage.QUALIFICATION, SalesStage.TRIAL, SalesStage.NEGOTIATION].includes(h.stage)
+    [SalesStage.LEAD, SalesStage.CONTACT, SalesStage.TRIAL].includes(h.stage)
   ).length;
 
   const stats = [
@@ -121,7 +119,7 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
       color: 'text-emerald-600',
       bg: 'bg-emerald-100',
       trend: 'Active',
-      info: '包含潛在客戶、資格審查、試用及協商階段'
+      info: '包含潛在客戶、接洽中、試用評估階段'
     },
   ];
 
@@ -166,135 +164,113 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-        {stats.map((stat, idx) => {
-          const Icon = stat.icon;
-          const isTooltipOpen = activeTooltip === idx;
-
-          return (
-            <div key={idx} className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-200/60 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-              <div className="flex justify-between items-start mb-2 sm:mb-4">
-                <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color} bg-opacity-50 group-hover:bg-opacity-100 transition-all`}>
-                  <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
-                </div>
-                <span className={`text-[10px] sm:text-xs font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full ${stat.trend.includes('+') ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {stat.trend}
-                </span>
+        {stats.map((stat, idx) => (
+          <div key={idx} className="relative bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 sm:p-6 flex flex-col justify-between h-28 sm:h-32 transition-all hover:shadow-lg hover:-translate-y-0.5 group">
+            <div className="flex items-center justify-between">
+              <div className={`${stat.bg} p-2 sm:p-2.5 rounded-xl shadow-sm`}>
+                <stat.icon size={18} className={stat.color} />
               </div>
-              <div>
-                <div className="flex items-center gap-1 mb-0.5 sm:mb-1 relative">
-                  <p className="text-xs sm:text-sm font-medium text-slate-500">{stat.label}</p>
-                  {/* @ts-ignore - info property exists in our new stats object */}
-                  {stat.info && (
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTooltip(isTooltipOpen ? null : idx);
-                        }}
-                        className="text-slate-400 hover:text-blue-500 transition-colors p-0.5 rounded-full hover:bg-blue-50 focus:outline-none"
-                      >
-                        <Info size={12} className="sm:w-3.5 sm:h-3.5" />
-                      </button>
-
-                      {isTooltipOpen && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-50 animate-fade-in">
-                          {stat.info}
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <p className="text-xl sm:text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
-              </div>
+              {stat.info && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTooltip(activeTooltip === idx ? null : idx);
+                  }}
+                  className="p-1 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <Info size={14} className="text-slate-400" />
+                </button>
+              )}
             </div>
-          );
-        })}
+            <div>
+              <p className="text-xl sm:text-3xl font-bold text-slate-900">{stat.value.toLocaleString()}</p>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">{stat.label}</p>
+            </div>
+            {stat.info && activeTooltip === idx && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-10 bg-slate-800 text-white text-xs py-2 px-3 rounded-lg shadow-lg max-w-xs">
+                {stat.info}
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
-      {/* Main Charts Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Sales Trend (2/3 width on xl, full width on smaller) */}
-        <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                <TrendingUp size={20} />
-              </div>
-              <h2 className="text-lg font-bold text-slate-900">銷售績效</h2>
-            </div>
-          </div>
-          <div className="h-80 w-full">
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* 銷售趨勢 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">銷售趨勢</h2>
+          <div className="h-64">
             {usageData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={usageData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <LineChart data={usageData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} tickLine={false} axisLine={false} />
                   <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
                   />
-                  <Legend iconType="circle" />
-                  <Bar dataKey="AA001" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={24} />
-                  <Bar dataKey="AA031" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
-                </BarChart>
+                  <Line type="monotone" dataKey="AA001" stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="AA031" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="AA400" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="AA401" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                  <Legend wrapperStyle={{ paddingTop: '16px' }} />
+                </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                <AlertCircle size={32} className="mb-2 opacity-50" />
-                <p className="text-sm">無所選期間的銷售數據</p>
-              </div>
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm bg-slate-50 rounded-xl">尚無銷售數據</div>
             )}
           </div>
         </div>
 
-        {/* 醫院狀態 (1/3 width on xl, full width on smaller) */}
+        {/* 客戶階段分佈 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">醫院狀態</h2>
-          <div className="h-80 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pipelineData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="50%"
-                  outerRadius="75%"
-                  paddingAngle={5}
-                  dataKey="value"
-                  cornerRadius={6}
-                >
-                  {pipelineData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '8px 12px' }} />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} formatter={(value) => <span className="text-slate-600 text-sm ml-1">{value}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center Text */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[60%] text-center pointer-events-none">
-              <p className="text-3xl font-bold text-slate-900">{hospitals.length}</p>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">總數</p>
-            </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-6">客戶階段分佈</h2>
+          <div className="h-64">
+            {pipelineData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pipelineData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius="80%"
+                    innerRadius="50%"
+                    dataKey="value"
+                    cornerRadius={6}
+                    paddingAngle={3}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                  >
+                    {pipelineData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm bg-slate-50 rounded-xl">尚無客戶數據</div>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Secondary Charts & Lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Regional Performance */}
+        {/* 區域銷售 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 lg:p-8">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">區域銷售表現</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-6">區域銷售</h2>
           <div className="h-64">
             {regionData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={regionData} layout="vertical" margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 13, fill: '#475569', fontWeight: 500 }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                <BarChart data={regionData} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: '#475569', fontSize: 12 }} axisLine={false} tickLine={false} width={60} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
+                  />
                   <Bar dataKey="sales" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={28} />
                 </BarChart>
               </ResponsiveContainer>
@@ -441,14 +417,14 @@ const Dashboard: React.FC<DashboardProps> = ({ hospitals, usageRecords, notes })
               )}
             </div>
 
-            {inNegotiation > 0 && (
+            {activeTrials > 0 && (
               <div className="mt-8 pt-6 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">進行中案件</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">試用評估中</p>
                 <div className="space-y-2">
-                  {hospitals.filter(h => h.stage === SalesStage.NEGOTIATION).map(h => (
+                  {hospitals.filter(h => h.stage === SalesStage.TRIAL).map(h => (
                     <div key={h.id} className="flex justify-between items-center text-sm p-2 hover:bg-slate-50 rounded-lg transition-colors">
                       <span className="text-slate-700 font-medium truncate">{h.name}</span>
-                      <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-semibold">協商中</span>
+                      <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">試用中</span>
                     </div>
                   ))}
                 </div>
