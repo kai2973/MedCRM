@@ -72,24 +72,43 @@ const HospitalDetailWrapper: React.FC<{
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  // 排序邏輯：與 HospitalList 一致（區域 → 等級 → 名稱筆劃）
+  const regionOrder: Record<string, number> = { '北區': 1, '中區': 2, '南區': 3, '東區': 4 };
+  const levelOrder: Record<string, number> = { '醫學中心': 1, '區域醫院': 2, '地區醫院': 3 };
+
+  const sortedHospitals = [...hospitals].sort((a, b) => {
+    // 先按區域排序
+    const regionA = regionOrder[a.region] || 99;
+    const regionB = regionOrder[b.region] || 99;
+    if (regionA !== regionB) return regionA - regionB;
+
+    // 再按等級排序
+    const levelA = levelOrder[a.level] || 99;
+    const levelB = levelOrder[b.level] || 99;
+    if (levelA !== levelB) return levelA - levelB;
+
+    // 最後按名稱筆劃排序（降序，筆劃多的在前）
+    return b.name.localeCompare(a.name, 'zh-TW-u-co-stroke');
+  });
+
   const hospital = hospitals.find(h => h.id === id);
 
-  // 計算當前醫院在列表中的索引位置
-  const currentIndex = hospitals.findIndex(h => h.id === id);
+  // 計算當前醫院在排序後列表中的索引位置
+  const currentIndex = sortedHospitals.findIndex(h => h.id === id);
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < hospitals.length - 1 && currentIndex !== -1;
+  const hasNext = currentIndex < sortedHospitals.length - 1 && currentIndex !== -1;
 
   // 導航到上一間醫院
   const navigateToPrev = () => {
     if (hasPrev) {
-      navigate(`/hospitals/${hospitals[currentIndex - 1].id}`);
+      navigate(`/hospitals/${sortedHospitals[currentIndex - 1].id}`);
     }
   };
 
   // 導航到下一間醫院
   const navigateToNext = () => {
     if (hasNext) {
-      navigate(`/hospitals/${hospitals[currentIndex + 1].id}`);
+      navigate(`/hospitals/${sortedHospitals[currentIndex + 1].id}`);
     }
   };
 
